@@ -101,10 +101,10 @@ const MDEditor = dynamic(
         const selected = _state.selectedText || "";
         if (selected) {
           api.replaceSelection(
-            `<div align="center">\n\n${selected}\n\n</div>`
+            `<center>\n\n${selected}\n\n</center>`
           );
         } else {
-          api.replaceSelection(`<div align="center">\n\n\n\n</div>`);
+          api.replaceSelection(`<center>\n\n\n\n</center>`);
         }
       },
     });
