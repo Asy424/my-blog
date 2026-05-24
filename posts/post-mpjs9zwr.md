@@ -3,7 +3,7 @@ title: "你好，世界！"
 date: "2026-05-24"
 tags: ["生活", "博客"]
 description: "我的第一篇博客文章，欢迎来到我的个人空间。"
-public: false
+public: true
 ---
 
 ## 终于开始了
