@@ -102,22 +102,34 @@ function parseFrontmatter(
   const data: Record<string, string> = {};
   for (const line of match[1].split("\n")) {
     const sep = line.indexOf(": ");
-    if (sep > 0) {
-      const key = line.slice(0, sep).trim();
-      const val = line.slice(sep + 2).trim().replace(/^"|"$/g, "");
-      data[key] = val;
+    if (sep <= 0) continue;
+    const key = line.slice(0, sep).trim();
+    let val = line.slice(sep + 2).trim().replace(/^"|"$/g, "");
+    // 尝试解析数组格式 tags: ["a", "b"] 或 tags: []
+    if (val.startsWith("[") && val.endsWith("]")) {
+      try {
+        const arr = JSON.parse(val);
+        if (Array.isArray(arr)) {
+          val = arr.filter((v) => typeof v === "string").join(", ");
+        }
+      } catch {}
     }
+    data[key] = val;
   }
   return { data, body: match[2].trimStart() };
 }
 
 function buildFrontmatter(title: string, tags: string, description: string) {
   const now = new Date().toISOString().split("T")[0];
+  // 清理可能嵌套的括号残余
+  const clean = tags.replace(/[\[\]"']+/g, "");
+  const tagList = clean.split(/[,\s]+/).filter(Boolean);
+  const tagsStr = tagList.map((t) => `"${t}"`).join(", ");
   const lines = [
     "---",
     `title: "${title}"`,
     `date: "${now}"`,
-    `tags: [${tags.split(/[,\s]+/).filter(Boolean).join(", ")}]`,
+    `tags: [${tagsStr}]`,
     description ? `description: "${description}"` : "",
     "---",
   ].filter(Boolean);

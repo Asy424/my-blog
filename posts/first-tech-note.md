@@ -1,7 +1,7 @@
 ---
 title: "我的第一篇技术笔记"
 date: "2026-05-24"
-tags: [[[["技术", "JavaScript", "教程"]]]]
+tags: ["技术", "JavaScript", "教程"]
 description: "记录学习 JavaScript 数组方法的心得与实践"
 ---
 
@@ -19,10 +19,6 @@ JavaScript 提供了丰富的数组操作方法。掌握它们能让你写出更
 
 </div>
 
-![Snipaste_2026-05-23_22-36-24.png](/my-blog/images/2026/05/1779620595987-Snipaste_2026-05-23_22-36-24.jpg)
-
-
-![Snipaste_2026-04-25_11-22-49.png](/my-blog/images/2026/05/1779620648422-Snipaste_2026-04-25_11-22-49.jpg)
 
 
 ## map：一对一转换
