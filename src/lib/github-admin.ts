@@ -76,6 +76,25 @@ export async function savePost(
   }
 }
 
+export async function deletePost(
+  token: string,
+  path: string,
+  sha: string
+): Promise<void> {
+  const res = await fetch(
+    `${API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${path}`,
+    {
+      method: "DELETE",
+      headers: headers(token),
+      body: JSON.stringify({ message: `删除文章: ${path}`, sha }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "删除失败: " + res.status);
+  }
+}
+
 async function compressImage(file: File, maxWidth = 1200): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();

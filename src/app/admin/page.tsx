@@ -9,6 +9,7 @@ import {
   savePost,
   verifyToken,
   uploadImage,
+  deletePost,
 } from "@/lib/github-admin";
 
 let currentToken = "";
@@ -434,7 +435,21 @@ export default function AdminPage() {
   }
 
   async function handleDelete() {
-    // delete is not implemented via API for safety
+    if (!editingFile) return;
+    if (!confirm(`确认删除文章「${title || editingFile.name}」？\n此操作不可撤销。`)) return;
+
+    setLoading(true);
+    setError("");
+    try {
+      await deletePost(token, editingFile.path, editingFile.sha);
+      setSuccess("文章已删除");
+      resetEditor();
+      await loadPosts();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (!stored) {
@@ -502,6 +517,14 @@ export default function AdminPage() {
           >
             {loading ? "处理中..." : editingFile ? "更新" : "发布"}
           </button>
+          {editingFile && (
+            <button
+              onClick={handleDelete}
+              className="px-3 py-1.5 text-sm rounded-md border border-red-300 dark:border-red-800 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+            >
+              删除
+            </button>
+          )}
           <button
             onClick={handleLogout}
             className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
