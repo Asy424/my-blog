@@ -50,3 +50,12 @@ console.log(greeting);
 
 
 </center>
+- <center>
+
+
+
+![Snipaste_2026-04-30_16-55-04.png](/my-blog/images/2026/05/1779626568799-Snipaste_2026-04-30_16-55-04.jpg)
+
+*图2.知名图片*
+
+</center>
