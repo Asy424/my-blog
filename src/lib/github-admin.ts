@@ -76,11 +76,37 @@ export async function savePost(
   }
 }
 
+async function compressImage(file: File, maxWidth = 1200): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const w = Math.min(img.width, maxWidth);
+      const h = Math.round((img.height * w) / img.width);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("压缩失败"));
+        },
+        "image/jpeg",
+        0.75
+      );
+    };
+    img.onerror = () => reject(new Error("图片加载失败"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
 export async function uploadImage(
   token: string,
   file: File
 ): Promise<{ url: string; path: string }> {
-  const buffer = await file.arrayBuffer();
+  const compressed = await compressImage(file);
+  const buffer = await compressed.arrayBuffer();
   const bytes = new Uint8Array(buffer);
   let binary = "";
   for (let i = 0; i < bytes.length; i++) {
@@ -89,7 +115,8 @@ export async function uploadImage(
 
   const now = new Date();
   const dir = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const name = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+  const baseName = file.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9._-]/g, "_");
+  const name = `${Date.now()}-${baseName}.jpg`;
   const path = `public/images/${dir}/${name}`;
 
   const res = await fetch(
