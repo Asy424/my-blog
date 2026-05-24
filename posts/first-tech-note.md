@@ -11,7 +11,7 @@ JavaScript 提供了丰富的数组操作方法。掌握它们能让你写出更
 
 三个最常用的方法：`map`、`filter`、`reduce`——它们相互配合，几乎能解决所有数组处理需求。
 
-![JavaScript 数组方法分类示意图](https://upload.wikimedia.org/wikipedia/commons/6/6a/JavaScript-logo.png)
+![JavaScript 数组方法分类示意图](/my-blog/images/2026/05/wechat-photo.jpg)
 
 ## map：一对一转换
 
