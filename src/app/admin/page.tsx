@@ -111,17 +111,15 @@ function parseFrontmatter(
 
 function buildFrontmatter(title: string, tags: string, description: string) {
   const now = new Date().toISOString().split("T")[0];
-  return [
+  const lines = [
     "---",
     `title: "${title}"`,
     `date: "${now}"`,
     `tags: [${tags.split(/[,\s]+/).filter(Boolean).join(", ")}]`,
     description ? `description: "${description}"` : "",
     "---",
-    "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  ].filter(Boolean);
+  return lines.join("\n") + "\n\n";
 }
 
 function slugify(title: string) {
