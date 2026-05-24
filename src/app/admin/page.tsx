@@ -34,28 +34,30 @@ const MDEditor = dynamic(
           document.body.appendChild(input);
           input.onchange = async () => {
             const file = input.files?.[0];
-            if (!file) return;
             document.body.removeChild(input);
-            const placeholder = `![上传中...]()`;
-            api.replaceSelection(placeholder);
+            if (!file) return;
+            if (!currentToken) {
+              alert("Token 未设置，请重新登录");
+              return;
+            }
+            window.dispatchEvent(
+              new CustomEvent("admin-image-upload", {
+                detail: { status: "start" },
+              })
+            );
             try {
               const { url } = await uploadImage(currentToken, file);
-              const md = `![${file.name}](${url})`;
-              const textarea = document.querySelector(
-                ".w-md-editor-text-input"
-              ) as HTMLTextAreaElement;
-              if (textarea) {
-                const val = textarea.value;
-                const idx = val.indexOf(placeholder);
-                if (idx !== -1) {
-                  const before = val.slice(0, idx);
-                  const after = val.slice(idx + placeholder.length);
-                  textarea.value = before + md + after;
-                  textarea.dispatchEvent(new Event("input", { bubbles: true }));
-                }
-              }
-            } catch {
-              api.replaceSelection("");
+              window.dispatchEvent(
+                new CustomEvent("admin-image-upload", {
+                  detail: { status: "done", text: `\n![${file.name}](${url})\n` },
+                })
+              );
+            } catch (e: any) {
+              window.dispatchEvent(
+                new CustomEvent("admin-image-upload", {
+                  detail: { status: "error", message: e.message || "未知错误" },
+                })
+              );
             }
           };
           input.click();
@@ -185,6 +187,23 @@ export default function AdminPage() {
   useEffect(() => {
     if (stored && token) loadPosts();
   }, [stored, token, loadPosts]);
+
+  useEffect(() => {
+    function handler(e: Event) {
+      const { detail } = e as CustomEvent;
+      if (detail.status === "start") {
+        setUploading(true);
+      } else if (detail.status === "done") {
+        setUploading(false);
+        setContent((prev) => prev + detail.text);
+      } else if (detail.status === "error") {
+        setUploading(false);
+        setError("图片上传失败: " + detail.message);
+      }
+    }
+    window.addEventListener("admin-image-upload", handler);
+    return () => window.removeEventListener("admin-image-upload", handler);
+  }, []);
 
   function handleTokenSubmit() {
     const t = tokenInput.trim();
