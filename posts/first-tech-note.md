@@ -13,19 +13,25 @@ JavaScript 提供了丰富的数组操作方法。掌握它们能让你写出更
 
 <div align="center">
 
-![猫咪图](/my-blog/images/2026/05/wechat-photo.jpg)
 
-*图1. 猫咪图*
+![微信图片_20260111124113_2_3.jpg](/my-blog/images/2026/05/1779622329304-_____20260111124113_2_3.jpg)
+
+*图1. 猫咪*
+</div>
+<div align="center">
+
+
+![Snipaste_2026-04-25_11-23-02.png](/my-blog/images/2026/05/1779622366584-Snipaste_2026-04-25_11-23-02.jpg)
+
+*图2. 月夜*
 
 </div>
-
-
 ## map：一对一转换
 
 `map` 对数组每个元素执行相同的操作，返回一个新数组。
 
 ```javascript
-const numbers = [1, 2, 3, 4, 5];
+const numbers = [1, 2, 3, 4, 5
 
 // 每个数翻倍
 const doubled = numbers.map((n) => n * 2);
