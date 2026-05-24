@@ -83,10 +83,19 @@ const MDEditor = dynamic(
       keyCommand: "center",
       buttonProps: { "aria-label": "居中文字", title: "居中文字" },
       icon: (() => {
-        const span = document.createElement("span");
-        span.textContent = "⬌";
-        span.style.fontSize = "14px";
-        return span;
+        const React = require("react");
+        return React.createElement(
+          "svg",
+          {
+            width: "14",
+            height: "14",
+            viewBox: "0 0 20 20",
+            fill: "currentColor",
+          },
+          React.createElement("path", {
+            d: "M4 3h12v2H4V3zm2 4h8v2H6V7zm-2 4h12v2H4v-2zm2 4h8v2H6v-2z",
+          })
+        );
       })(),
       execute: (_state: any, api: any) => {
         const selected = _state.selectedText || "";

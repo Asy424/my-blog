@@ -18,11 +18,6 @@ JavaScript 提供了丰富的数组操作方法。掌握它们能让你写出更
 *图1. 猫咪图*
 
 </div>
-<div align="center">
-
-![Snipaste_2026-05-23_22-36-24.png](/my-blog/images/2026/05/1779621313361-Snipaste_2026-05-23_22-36-24.jpg)
-*图2. 机器人图*
-</div>
 
 
 ## map：一对一转换
