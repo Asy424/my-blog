@@ -195,7 +195,16 @@ export default function AdminPage() {
         setUploading(true);
       } else if (detail.status === "done") {
         setUploading(false);
-        setContent((prev) => prev + detail.text);
+        const textarea = document.querySelector(
+          ".w-md-editor-text-input"
+        ) as HTMLTextAreaElement;
+        const pos = textarea?.selectionStart;
+        setContent((prev) => {
+          if (pos !== undefined && pos !== null) {
+            return prev.slice(0, pos) + detail.text + prev.slice(pos);
+          }
+          return prev + detail.text;
+        });
       } else if (detail.status === "error") {
         setUploading(false);
         setError("图片上传失败: " + detail.message);
@@ -290,7 +299,17 @@ export default function AdminPage() {
     setError("");
     try {
       const { url } = await uploadImage(token, file);
-      setContent((prev) => prev + `\n![${file.name}](${url})\n`);
+      const md = `\n![${file.name}](${url})\n`;
+      const textarea = document.querySelector(
+        ".w-md-editor-text-input"
+      ) as HTMLTextAreaElement;
+      const pos = textarea?.selectionStart;
+      setContent((prev) => {
+        if (pos !== undefined && pos !== null) {
+          return prev.slice(0, pos) + md + prev.slice(pos);
+        }
+        return prev + md;
+      });
     } catch (e: any) {
       setError(e.message);
     } finally {
