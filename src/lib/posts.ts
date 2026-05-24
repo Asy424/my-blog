@@ -10,10 +10,11 @@ export interface PostData {
   date: string;
   tags: string[];
   description: string;
+  public: boolean;
   content?: string;
 }
 
-export function getSortedPostsData(): PostData[] {
+export function getSortedPostsData(includePrivate = false): PostData[] {
   const fileNames = fs.readdirSync(postsDirectory);
   const allPostsData = fileNames
     .filter((fileName) => fileName.endsWith(".md"))
@@ -29,10 +30,13 @@ export function getSortedPostsData(): PostData[] {
         date: matterResult.data.date,
         tags: matterResult.data.tags || [],
         description: matterResult.data.description || "",
+        public: matterResult.data.public !== false,
       };
     });
 
-  return allPostsData.sort((a, b) => (a.date < b.date ? 1 : -1));
+  const sorted = allPostsData.sort((a, b) => (a.date < b.date ? 1 : -1));
+  if (includePrivate) return sorted;
+  return sorted.filter((p) => p.public);
 }
 
 export function getAllTags(): string[] {
@@ -54,6 +58,7 @@ export function getPostBySlug(slug: string): PostData | null {
       date: matterResult.data.date,
       tags: matterResult.data.tags || [],
       description: matterResult.data.description || "",
+      public: matterResult.data.public !== false,
       content: matterResult.content,
     };
   } catch {

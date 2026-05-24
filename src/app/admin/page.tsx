@@ -151,9 +151,13 @@ function parseFrontmatter(
   return { data, body: match[2].trimStart() };
 }
 
-function buildFrontmatter(title: string, tags: string, description: string) {
+function buildFrontmatter(
+  title: string,
+  tags: string,
+  description: string,
+  isPublic: boolean
+) {
   const now = new Date().toISOString().split("T")[0];
-  // 清理可能嵌套的括号残余
   const clean = tags.replace(/[\[\]"']+/g, "");
   const tagList = clean.split(/[,\s]+/).filter(Boolean);
   const tagsStr = tagList.map((t) => `"${t}"`).join(", ");
@@ -163,6 +167,7 @@ function buildFrontmatter(title: string, tags: string, description: string) {
     `date: "${now}"`,
     `tags: [${tagsStr}]`,
     description ? `description: "${description}"` : "",
+    `public: ${isPublic}`,
     "---",
   ].filter(Boolean);
   return lines.join("\n") + "\n\n";
@@ -193,6 +198,7 @@ export default function AdminPage() {
   const [tags, setTags] = useState("");
   const [description, setDescription] = useState("");
   const [content, setContent] = useState("");
+  const [isPublic, setIsPublic] = useState(true);
   const [editingFile, setEditingFile] = useState<GitHubFile | null>(null);
   const [postTitles, setPostTitles] = useState<Record<string, string>>({});
 
@@ -321,6 +327,7 @@ export default function AdminPage() {
     setTags("");
     setDescription("");
     setContent("");
+    setIsPublic(true);
     setEditingFile(null);
     setError("");
     setSuccess("");
@@ -336,6 +343,7 @@ export default function AdminPage() {
       setTitle(data.title || file.name.replace(".md", ""));
       setTags(Array.isArray(data.tags) ? data.tags.join(", ") : data.tags || "");
       setDescription(data.description || "");
+      setIsPublic(data.public !== "false");
       setContent(body.trimStart());
       setEditingFile({ ...file, sha });
       // 记住标题
@@ -363,7 +371,7 @@ export default function AdminPage() {
     setSuccess("");
 
     const slug = slugify(title);
-    const frontmatter = buildFrontmatter(title.trim(), tags.trim(), description.trim());
+    const frontmatter = buildFrontmatter(title.trim(), tags.trim(), description.trim(), isPublic);
     const fullContent = frontmatter + content.trimStart();
 
     try {
@@ -593,6 +601,16 @@ export default function AdminPage() {
               onChange={(e) => setDescription(e.target.value)}
               className="bg-transparent outline-none placeholder-gray-300 dark:placeholder-gray-600 flex-1"
             />
+            <button
+              onClick={() => setIsPublic(!isPublic)}
+              className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                isPublic
+                  ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                  : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+              }`}
+            >
+              {isPublic ? "公开" : "私密"}
+            </button>
           </div>
 
           {/* Markdown 编辑器 */}
