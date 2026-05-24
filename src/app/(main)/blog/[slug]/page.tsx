@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: BlogPostPageProps) {
 }
 
 export function generateStaticParams() {
-  const posts = getSortedPostsData();
+  const posts = getSortedPostsData(true); // 包含私密，确保私密文章也能生成页面
   return posts.map((post) => ({
     slug: post.slug,
   }));
