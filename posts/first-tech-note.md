@@ -1,7 +1,7 @@
 ---
 title: "我的第一篇技术笔记"
 date: "2026-05-24"
-tags: [["技术", "JavaScript", "教程"]]
+tags: [[["技术", "JavaScript", "教程"]]]
 description: "记录学习 JavaScript 数组方法的心得与实践"
 ---
 
