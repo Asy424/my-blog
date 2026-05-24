@@ -188,6 +188,7 @@ export default function AdminPage() {
   const [description, setDescription] = useState("");
   const [content, setContent] = useState("");
   const [editingFile, setEditingFile] = useState<GitHubFile | null>(null);
+  const [postTitles, setPostTitles] = useState<Record<string, string>>({});
 
   const [uploading, setUploading] = useState(false);
 
@@ -200,6 +201,10 @@ export default function AdminPage() {
       setToken(saved);
       setStored(true);
       currentToken = saved;
+    }
+    const titles = localStorage.getItem("admin-titles");
+    if (titles) {
+      try { setPostTitles(JSON.parse(titles)); } catch {}
     }
   }, []);
 
@@ -327,6 +332,13 @@ export default function AdminPage() {
       setDescription(data.description || "");
       setContent(body.trimStart());
       setEditingFile({ ...file, sha });
+      // 记住标题
+      const t = data.title || file.name.replace(".md", "");
+      setPostTitles((prev) => {
+        const next = { ...prev, [file.path]: t };
+        localStorage.setItem("admin-titles", JSON.stringify(next));
+        return next;
+      });
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -361,6 +373,12 @@ export default function AdminPage() {
       );
       setSuccess("发布成功！文章已提交到 GitHub，Actions 正在自动部署...");
       localStorage.removeItem("admin-draft");
+      // 更新标题映射
+      setPostTitles((prev) => {
+        const next = { ...prev, [path]: title.trim() };
+        localStorage.setItem("admin-titles", JSON.stringify(next));
+        return next;
+      });
       await loadPosts();
     } catch (e: any) {
       setError(e.message);
@@ -508,7 +526,7 @@ export default function AdminPage() {
                 }`}
               >
                 <span className="truncate block">
-                  {post.name.replace(".md", "")}
+                  {postTitles[post.path] || post.name.replace(".md", "")}
                 </span>
               </button>
             ))}
