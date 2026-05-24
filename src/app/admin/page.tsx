@@ -168,10 +168,15 @@ function buildFrontmatter(title: string, tags: string, description: string) {
 }
 
 function slugify(title: string) {
-  return title
-    .replace(/[^\w一-鿿\s-]/g, "")
+  // 只保留英文、数字、连字符，中文等非ASCII字符去掉
+  const cleaned = title
+    .replace(/[^a-zA-Z0-9\s-]/g, "")
     .trim()
-    .replace(/\s+/g, "-");
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .toLowerCase();
+  // 如果纯中文标题导致为空，用时间戳
+  return cleaned || `post-${Date.now().toString(36)}`;
 }
 
 export default function AdminPage() {
