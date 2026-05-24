@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { getSortedPostsData } from "./posts";
 
-const siteUrl = "https://yourusername.github.io/blog";
+const siteUrl = "https://asy424.github.io/my-blog";
 const siteName = "我的博客";
 
 export function generateSearchIndex() {

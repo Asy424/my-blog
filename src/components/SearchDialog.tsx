@@ -26,7 +26,7 @@ export default function SearchDialog({ open, onClose }: SearchDialogProps) {
 
   useEffect(() => {
     if (open) {
-      fetch("/search-index.json")
+      fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/search-index.json`)
         .then((res) => res.json())
         .then((data: SearchIndex[]) => {
           setIndex(data);
