@@ -11,10 +11,18 @@ if (!title) {
   process.exit(1);
 }
 
-const slug = title
-  .replace(/[^\w一-鿿\s-]/g, "")
+// 只保留英文、数字、连字符作为文件名，中文等非ASCII字符去掉
+let slug = title
+  .replace(/[^\w\s-]/g, "")
   .trim()
-  .replace(/\s+/g, "-");
+  .replace(/\s+/g, "-")
+  .replace(/-+/g, "-")
+  .toLowerCase();
+
+// 如果纯中文标题导致 slug 为空，用时间戳
+if (!slug) {
+  slug = `post-${Date.now()}`;
+}
 
 const now = new Date();
 const date = now.toISOString().split("T")[0];

@@ -8,18 +8,11 @@
     <atom:link href="https://asy424.github.io/my-blog/rss.xml" rel="self" type="application/rss+xml"/>
     
     <item>
-      <title>测试文件</title>
-      <link>https://asy424.github.io/my-blog/blog/测试文件</link>
-      <description></description>
+      <title>我的第一篇技术笔记</title>
+      <link>https://asy424.github.io/my-blog/blog/我的第一篇技术笔记</link>
+      <description>记录学习 JavaScript 数组方法的心得与实践</description>
       <pubDate>Sun, 24 May 2026 00:00:00 GMT</pubDate>
-      <guid>https://asy424.github.io/my-blog/blog/测试文件</guid>
-    </item>
-    <item>
-      <title>测试</title>
-      <link>https://asy424.github.io/my-blog/blog/测试</link>
-      <description></description>
-      <pubDate>Sun, 24 May 2026 00:00:00 GMT</pubDate>
-      <guid>https://asy424.github.io/my-blog/blog/测试</guid>
+      <guid>https://asy424.github.io/my-blog/blog/我的第一篇技术笔记</guid>
     </item>
     <item>
       <title>Windows 程序查找与环境变量配置完全指南</title>
@@ -29,9 +22,9 @@
       <guid>https://asy424.github.io/my-blog/blog/Windows_Program_Search_and_Environment_Variable_Guide</guid>
     </item>
     <item>
-      <title>ä½ å¥½ï¼ä¸çï¼</title>
+      <title>你好，世界！</title>
       <link>https://asy424.github.io/my-blog/blog/hello-world</link>
-      <description>æçç¬¬ä¸ç¯åå®¢æç« ï¼æ¬¢è¿æ¥å°æçä¸ªäººç©ºé´ã</description>
+      <description>我的第一篇博客文章，欢迎来到我的个人空间。</description>
       <pubDate>Sun, 24 May 2026 00:00:00 GMT</pubDate>
       <guid>https://asy424.github.io/my-blog/blog/hello-world</guid>
     </item>
