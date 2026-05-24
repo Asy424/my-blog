@@ -518,6 +518,17 @@ export default function AdminPage() {
           >
             新建
           </button>
+          {editingFile && (
+            <button
+              onClick={() => {
+                const slug = editingFile.path.replace(/^posts\//, "").replace(/\.md$/, "");
+                window.open(`/my-blog/blog/${slug}`, "_blank");
+              }}
+              className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              预览
+            </button>
+          )}
           <button
             onClick={handlePublish}
             disabled={loading}
