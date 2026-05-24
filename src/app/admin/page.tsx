@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import type { GitHubFile } from "@/lib/github-admin";
 import {
@@ -257,6 +257,37 @@ export default function AdminPage() {
     return () => window.removeEventListener("admin-image-upload", handler);
   }, []);
 
+  const editorRef = useRef({ title: "", tags: "", description: "", content: "" });
+  editorRef.current = { title, tags, description, content };
+
+  // 自动保存草稿 + 恢复
+  useEffect(() => {
+    const DRAFT_KEY = "admin-draft";
+    const saved = localStorage.getItem(DRAFT_KEY);
+    if (saved && !title && !content) {
+      try {
+        const draft = JSON.parse(saved);
+        if (draft.title || draft.content) {
+          if (confirm("检测到未保存的草稿，是否恢复？")) {
+            setTitle(draft.title || "");
+            setTags(draft.tags || "");
+            setDescription(draft.description || "");
+            setContent(draft.content || "");
+          } else {
+            localStorage.removeItem(DRAFT_KEY);
+          }
+        }
+      } catch {}
+    }
+    const timer = setInterval(() => {
+      const d = editorRef.current;
+      if (d.title || d.content) {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+      }
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   function handleTokenSubmit() {
     const t = tokenInput.trim();
     if (!t) return;
@@ -329,6 +360,7 @@ export default function AdminPage() {
         editingFile?.sha
       );
       setSuccess("发布成功！文章已提交到 GitHub，Actions 正在自动部署...");
+      localStorage.removeItem("admin-draft");
       await loadPosts();
     } catch (e: any) {
       setError(e.message);
