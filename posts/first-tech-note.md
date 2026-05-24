@@ -11,7 +11,13 @@ JavaScript 提供了丰富的数组操作方法。掌握它们能让你写出更
 
 三个最常用的方法：`map`、`filter`、`reduce`——它们相互配合，几乎能解决所有数组处理需求。
 
-![图1.猫咪图](/my-blog/images/2026/05/wechat-photo.jpg)
+<div align="center">
+
+![猫咪图](/my-blog/images/2026/05/wechat-photo.jpg)
+
+*图1. 猫咪图*
+
+</div>
 
 ![Snipaste_2026-05-23_22-36-24.png](/my-blog/images/2026/05/1779620595987-Snipaste_2026-05-23_22-36-24.jpg)
 
