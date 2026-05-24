@@ -78,6 +78,28 @@ const MDEditor = dynamic(
       }
     });
 
+    commands.push({
+      name: "center",
+      keyCommand: "center",
+      buttonProps: { "aria-label": "居中文字", title: "居中文字" },
+      icon: (() => {
+        const span = document.createElement("span");
+        span.textContent = "⬌";
+        span.style.fontSize = "14px";
+        return span;
+      })(),
+      execute: (_state: any, api: any) => {
+        const selected = _state.selectedText || "";
+        if (selected) {
+          api.replaceSelection(
+            `<div align="center">\n\n${selected}\n\n</div>`
+          );
+        } else {
+          api.replaceSelection(`<div align="center">\n\n\n\n</div>`);
+        }
+      },
+    });
+
     return {
       default: (props: any) => (
         <Editor
