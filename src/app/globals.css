@@ -142,6 +142,10 @@ body {
   border-radius: 0;
 }
 
+.prose div[align="center"] {
+  text-align: center;
+}
+
 .prose img {
   max-width: 100%;
   border-radius: 0.5rem;
