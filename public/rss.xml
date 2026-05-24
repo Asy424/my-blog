@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>我的博客</title>
+    <link>https://yourusername.github.io/blog</link>
+    <description>个人技术博客</description>
+    <language>zh-CN</language>
+    <atom:link href="https://yourusername.github.io/blog/rss.xml" rel="self" type="application/rss+xml"/>
+    
+    <item>
+      <title>你好，世界！</title>
+      <link>https://yourusername.github.io/blog/blog/hello-world</link>
+      <description>我的第一篇博客文章，欢迎来到我的个人空间。</description>
+      <pubDate>Sun, 24 May 2026 00:00:00 GMT</pubDate>
+      <guid>https://yourusername.github.io/blog/blog/hello-world</guid>
+    </item>
+    <item>
+      <title>我是如何搭建这个博客的</title>
+      <link>https://yourusername.github.io/blog/blog/building-this-blog</link>
+      <description>从零开始搭建个人博客的技术选型与实现过程。</description>
+      <pubDate>Sun, 24 May 2026 00:00:00 GMT</pubDate>
+      <guid>https://yourusername.github.io/blog/blog/building-this-blog</guid>
+    </item>
+  </channel>
+</rss>
