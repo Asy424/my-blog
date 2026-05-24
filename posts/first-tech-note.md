@@ -1,7 +1,7 @@
 ---
 title: "我的第一篇技术笔记"
 date: "2026-05-24"
-tags: ["技术", "JavaScript", "教程"]
+tags: [["技术", "JavaScript", "教程"]]
 description: "记录学习 JavaScript 数组方法的心得与实践"
 ---
 
@@ -11,7 +11,8 @@ JavaScript 提供了丰富的数组操作方法。掌握它们能让你写出更
 
 三个最常用的方法：`map`、`filter`、`reduce`——它们相互配合，几乎能解决所有数组处理需求。
 
-![JavaScript 数组方法分类示意图](/my-blog/images/2026/05/wechat-photo.jpg)
+![图1.猫咪图](/my-blog/images/2026/05/wechat-photo.jpg)
+
 
 ## map：一对一转换
 
@@ -101,3 +102,6 @@ console.log(expensiveItems); // ["耳机", "键盘", "鼠标", "鼠标垫"]
 这些方法不改变原数组，符合不可变数据的原则。如果你也在学习 JavaScript，推荐看看 [MDN 数组文档](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Array)，写得非常详细。
 
 多写多练，慢慢就会习惯用它们替代 `for` 循环。
+
+
+
