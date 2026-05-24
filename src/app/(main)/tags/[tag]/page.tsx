@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: TagPageProps) {
 export function generateStaticParams() {
   const tags = getAllTags();
   return tags.map((tag) => ({
-    tag,
+    tag: String(tag),
   }));
 }
 

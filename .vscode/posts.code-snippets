@@ -1,0 +1,17 @@
+{
+  "New Blog Post": {
+    "scope": "markdown",
+    "prefix": "post",
+    "body": [
+      "---",
+      "title: \"${1:文章标题}\"",
+      "date: \"${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE}\"",
+      "tags: [\"${2:标签}\"]",
+      "description: \"${3:文章简介}\"",
+      "---",
+      "",
+      "$0"
+    ],
+    "description": "创建新博客文章的 frontmatter 模板"
+  }
+}
