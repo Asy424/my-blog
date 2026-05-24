@@ -33,7 +33,9 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     notFound();
   }
 
-  const processedContent = await remark().use(html).process(post.content || "");
+  const processedContent = await remark()
+    .use(html, { sanitize: false })
+    .process(post.content || "");
   const contentHtml = processedContent.toString();
 
   return (
