@@ -1,3 +1,10 @@
+---
+title: "Windows 程序查找与环境变量配置完全指南"
+date: "2026-05-24"
+tags: ["Windows", "环境变量", "PowerShell"]
+description: "Windows 下查找程序安装路径和配置环境变量的完整指南，涵盖包管理器、注册表查询、PATH 配置等多种方法。"
+---
+
 # Windows 程序查找与环境变量配置完全指南
 
 ## 📋 目录
