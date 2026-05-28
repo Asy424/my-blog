@@ -13,7 +13,8 @@ export default function MouseTrail() {
     let h = (canvas.height = window.innerHeight);
     let mouseX = -100;
     let mouseY = -100;
-    const dots: { x: number; y: number; alpha: number }[] = [];
+    const dots: { x: number; y: number; alpha: number; hue: number }[] = [];
+    let hue = 0;
 
     function resize() {
       w = canvas.width = window.innerWidth;
@@ -27,7 +28,8 @@ export default function MouseTrail() {
     });
 
     function animate() {
-      dots.push({ x: mouseX, y: mouseY, alpha: 0.6 });
+      hue = (hue + 15) % 360;
+      dots.push({ x: mouseX, y: mouseY, alpha: 0.6, hue });
       if (dots.length > 15) dots.shift();
 
       ctx.clearRect(0, 0, w, h);
@@ -38,7 +40,7 @@ export default function MouseTrail() {
         const size = (i / dots.length) * 6 + 2;
         ctx.beginPath();
         ctx.arc(d.x, d.y, size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(59, 130, 246, ${d.alpha})`;
+        ctx.fillStyle = `hsla(${d.hue}, 100%, 60%, ${d.alpha})`;
         ctx.fill();
       }
       requestAnimationFrame(animate);
