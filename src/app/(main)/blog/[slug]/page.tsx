@@ -36,7 +36,20 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const processedContent = await remark()
     .use(html, { sanitize: false })
     .process(post.content || "");
-  const contentHtml = processedContent.toString();
+  let contentHtml = processedContent.toString();
+  // 给标题加 id 属性，支持目录锚点跳转
+  contentHtml = contentHtml.replace(
+    /<h([2-6])>(.*?)<\/h\1>/g,
+    (_, level, text) => {
+      const id = text
+        .replace(/<[^>]+>/g, "")
+        .replace(/[^\w一-鿿\s-]/g, "")
+        .trim()
+        .replace(/\s+/g, "-")
+        .toLowerCase();
+      return `<h${level} id="${id}">${text}</h${level}>`;
+    }
+  );
 
   return (
     <article className="max-w-3xl mx-auto px-4 py-12">
