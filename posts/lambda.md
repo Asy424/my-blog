@@ -1,5 +1,5 @@
 ---
-title: "Lambda表达式"
+title: "Lambda表达式完全指南"
 date: "2026-05-28"
 tags: ["Lambda"]
 public: true
