@@ -2,9 +2,8 @@ import { notFound } from "next/navigation";
 import { remark } from "remark";
 import remarkGfm from "remark-gfm";
 import remarkRehype from "remark-rehype";
-import rehypeHighlight from "rehype-highlight";
 import rehypeStringify from "rehype-stringify";
-import "highlight.js/styles/atom-one-dark.css";
+import rehypeShiki from "@shikijs/rehype";
 import { getPostBySlug, getSortedPostsData } from "@/lib/posts";
 import TagBadge from "@/components/TagBadge";
 import CodeBlock from "@/components/CodeBlock";
@@ -41,7 +40,9 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const processedContent = await remark()
     .use(remarkGfm)
     .use(remarkRehype)
-    .use(rehypeHighlight)
+    .use(rehypeShiki, {
+      theme: "one-dark-pro",
+    })
     .use(rehypeStringify)
     .process(post.content || "");
   let contentHtml = processedContent.toString();

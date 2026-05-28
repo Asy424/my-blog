@@ -131,14 +131,11 @@ body {
   background: #111827;
 }
 
-/* 让 highlight.js 样式优先级更高 */
-.prose pre code.hljs {
+/* shiki 代码高亮样式 */
+.prose pre code {
   background: transparent;
   padding: 0;
-}
-
-.prose pre .hljs {
-  color: #abb2bf;
+  font-size: inherit;
 }
 
 .prose code {
