@@ -46,6 +46,15 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     .use(rehypeStringify)
     .process(post.content || "");
   let contentHtml = processedContent.toString();
+  // 把 ./xxx.md 链接转为博客 URL
+  const basePath = "/my-blog/blog";
+  contentHtml = contentHtml.replace(
+    /href="\.\/([^"]+\.md)"/g,
+    (_, file) => {
+      const slug = file.replace(/\.md$/, "");
+      return `href="${basePath}/${slug}"`;
+    }
+  );
   // 给标题加 id 属性，支持目录锚点跳转
   contentHtml = contentHtml.replace(
     /<h([2-6])>(.*?)<\/h\1>/g,
