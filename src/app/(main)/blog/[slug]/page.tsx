@@ -1,7 +1,10 @@
 import { notFound } from "next/navigation";
 import { remark } from "remark";
-import html from "remark-html";
 import remarkGfm from "remark-gfm";
+import remarkRehype from "remark-rehype";
+import rehypeHighlight from "rehype-highlight";
+import rehypeStringify from "rehype-stringify";
+import "highlight.js/styles/github-dark.css";
 import { getPostBySlug, getSortedPostsData } from "@/lib/posts";
 import TagBadge from "@/components/TagBadge";
 
@@ -36,7 +39,9 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
   const processedContent = await remark()
     .use(remarkGfm)
-    .use(html, { sanitize: false })
+    .use(remarkRehype)
+    .use(rehypeHighlight)
+    .use(rehypeStringify)
     .process(post.content || "");
   let contentHtml = processedContent.toString();
   // 给标题加 id 属性，支持目录锚点跳转
