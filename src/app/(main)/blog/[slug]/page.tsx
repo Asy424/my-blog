@@ -7,6 +7,7 @@ import rehypeStringify from "rehype-stringify";
 import "highlight.js/styles/github-dark.css";
 import { getPostBySlug, getSortedPostsData } from "@/lib/posts";
 import TagBadge from "@/components/TagBadge";
+import CodeBlock from "@/components/CodeBlock";
 
 interface BlogPostPageProps {
   params: Promise<{ slug: string }>;
@@ -60,6 +61,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
   return (
     <article className="max-w-3xl mx-auto px-4 py-12">
+      <CodeBlock />
       <header className="mb-10">
         <h1 className="text-3xl font-bold tracking-tight">{post.title}</h1>
         <div className="mt-4 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
