@@ -372,7 +372,10 @@ export default function AdminPage() {
 
     const slug = slugify(title);
     const frontmatter = buildFrontmatter(title.trim(), tags.trim(), description.trim(), isPublic);
-    const fullContent = frontmatter + content.trimStart();
+    let body = content.trimStart();
+    // 自动转换 [标题](./xxx.md) 为 [标题](/my-blog/blog/xxx)
+    body = body.replace(/\[([^\]]+)\]\(\.\/([^)]+)\.md\s*\)/g, "[$1](/my-blog/blog/$2)");
+    const fullContent = frontmatter + body;
 
     try {
       const path = editingFile
