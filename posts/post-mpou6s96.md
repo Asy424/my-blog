@@ -742,5 +742,5 @@ names.stream()
 
 ---
 
-**上一步：** [Lambda 表达式完全指南](./lambda.md)  
-**下一步：** [Stream API 完全指南](./03_Stream_API.md)
+**上一步：** [Lambda 表达式完全指南](/my-blog/blog/lambda)  
+**下一步：** [Stream API 完全指南](/my-blog/blog/方法引用完全指南)
