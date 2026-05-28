@@ -84,6 +84,22 @@ export async function savePost(
     }
   );
   if (!res.ok) {
+    // SHA 冲突，重新获取最新 SHA 再试一次
+    if (res.status === 409) {
+      const getRes = await fetch(
+        `${API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${path}`,
+        { headers: headers(token) }
+      );
+      if (getRes.ok) {
+        const data = await getRes.json();
+        body.sha = data.sha;
+        const retryRes = await fetch(
+          `${API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${path}`,
+          { method: "PUT", headers: headers(token), body: JSON.stringify(body) }
+        );
+        if (retryRes.ok) return;
+      }
+    }
     const err = await res.json();
     throw new Error(err.message || "保存失败: " + res.status);
   }
