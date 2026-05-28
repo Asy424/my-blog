@@ -575,6 +575,9 @@ export default function AdminPage() {
                 <span className="truncate block">
                   {postTitles[post.path] || post.name.replace(".md", "")}
                 </span>
+                <span className="truncate block text-xs text-gray-400 mt-0.5">
+                  ./{post.name}
+                </span>
               </button>
             ))}
           </div>
