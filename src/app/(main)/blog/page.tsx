@@ -10,7 +10,7 @@ export default function BlogPage() {
   const posts = getSortedPostsData();
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-12">
+    <div className="max-w-5xl mx-auto px-4 py-12">
       <h1 className="text-3xl font-bold tracking-tight">所有文章</h1>
       {posts.length === 0 ? (
         <div className="text-center py-16 text-gray-500 dark:text-gray-400">

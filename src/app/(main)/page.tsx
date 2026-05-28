@@ -5,7 +5,7 @@ export default function Home() {
   const posts = getSortedPostsData();
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-12">
+    <div className="max-w-5xl mx-auto px-4 py-12">
       <section className="mb-16">
         <h1 className="text-4xl font-bold tracking-tight">你好，欢迎来到我的博客</h1>
         <p className="mt-4 text-lg text-gray-600 dark:text-gray-400 leading-relaxed">

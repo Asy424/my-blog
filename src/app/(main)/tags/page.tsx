@@ -18,7 +18,7 @@ export default function TagsPage() {
   });
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-12">
+    <div className="max-w-5xl mx-auto px-4 py-12">
       <h1 className="text-3xl font-bold tracking-tight">标签</h1>
       <p className="mt-2 text-gray-600 dark:text-gray-400">
         共 {tags.length} 个标签

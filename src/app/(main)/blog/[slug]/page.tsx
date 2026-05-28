@@ -70,7 +70,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   );
 
   return (
-    <article className="max-w-3xl mx-auto px-4 py-12">
+    <article className="max-w-5xl mx-auto px-4 py-12">
       <CodeBlock />
       <header className="mb-10">
         <h1 className="text-3xl font-bold tracking-tight">{post.title}</h1>
