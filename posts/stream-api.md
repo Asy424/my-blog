@@ -1288,5 +1288,5 @@ List<Product> products = Arrays.asList(
 
 ---
 
-**上一步：** [方法引用完全指南](./02_Method_Reference.md)  
+**上一步：** [方法引用完全指南](./post-mpou6s96.md)  
 **下一步：** （可选）[并行流深入解析](./04_Parallel_Stream.md)

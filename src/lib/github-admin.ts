@@ -56,6 +56,19 @@ export async function savePost(
   content: string,
   sha?: string
 ): Promise<void> {
+  // 如果没有传 sha，尝试获取现有文件的 sha
+  if (!sha) {
+    try {
+      const res = await fetch(
+        `${API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${path}`,
+        { headers: headers(token) }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        sha = data.sha;
+      }
+    } catch {}
+  }
   const body: any = {
     message: sha ? `更新文章: ${path}` : `新文章: ${path}`,
     content: toBase64(content),
