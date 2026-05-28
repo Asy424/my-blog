@@ -664,4 +664,4 @@ List<String> names = Arrays.asList("alice", "bob", "charlie");
 
 ---
 
-**下一步：** [方法引用完全指南](./02_Method_Reference.md)
+**下一步：** [方法引用完全指南](./post-mpou6s96.md)
