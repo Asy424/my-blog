@@ -1,5 +1,5 @@
 ---
-title: "方法引用"
+title: "方法引用完全指南"
 date: "2026-05-28"
 tags: []
 description: "Lambda 表达式的进一步简化"
