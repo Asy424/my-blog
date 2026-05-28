@@ -4,7 +4,7 @@ import remarkGfm from "remark-gfm";
 import remarkRehype from "remark-rehype";
 import rehypeHighlight from "rehype-highlight";
 import rehypeStringify from "rehype-stringify";
-import "highlight.js/styles/github-dark.css";
+import "highlight.js/styles/atom-one-dark.css";
 import { getPostBySlug, getSortedPostsData } from "@/lib/posts";
 import TagBadge from "@/components/TagBadge";
 import CodeBlock from "@/components/CodeBlock";
