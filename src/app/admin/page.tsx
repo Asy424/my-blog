@@ -388,7 +388,7 @@ export default function AdminPage() {
         fullContent,
         editingFile?.sha
       );
-      setSuccess("发布成功！文章已提交到 GitHub，Actions 正在自动部署...");
+      setSuccess("发布成功！已提交到 GitHub。如果要在 VS Code 继续编辑，先执行 npm run sync 拉取最新代码");
       localStorage.removeItem("admin-draft");
       // 更新标题映射
       setPostTitles((prev) => {

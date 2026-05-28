@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "sync": "git pull origin master",
     "new-post": "node scripts/new-post.mjs",
     "generate": "npx tsx src/lib/generate.ts",
     "build": "npm run generate && next build",
