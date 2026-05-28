@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { remark } from "remark";
 import html from "remark-html";
+import remarkGfm from "remark-gfm";
 import { getPostBySlug, getSortedPostsData } from "@/lib/posts";
 import TagBadge from "@/components/TagBadge";
 
@@ -34,6 +35,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   }
 
   const processedContent = await remark()
+    .use(remarkGfm)
     .use(html, { sanitize: false })
     .process(post.content || "");
   let contentHtml = processedContent.toString();

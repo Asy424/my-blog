@@ -8,6 +8,20 @@
     <atom:link href="https://asy424.github.io/my-blog/rss.xml" rel="self" type="application/rss+xml"/>
     
     <item>
+      <title>方法引用</title>
+      <link>https://asy424.github.io/my-blog/blog/post-mpou6s96</link>
+      <description>Lambda 表达式的进一步简化</description>
+      <pubDate>Thu, 28 May 2026 00:00:00 GMT</pubDate>
+      <guid>https://asy424.github.io/my-blog/blog/post-mpou6s96</guid>
+    </item>
+    <item>
+      <title>Lambda表达式</title>
+      <link>https://asy424.github.io/my-blog/blog/lambda</link>
+      <description></description>
+      <pubDate>Thu, 28 May 2026 00:00:00 GMT</pubDate>
+      <guid>https://asy424.github.io/my-blog/blog/lambda</guid>
+    </item>
+    <item>
       <title>Windows 程序查找与环境变量配置完全指南</title>
       <link>https://asy424.github.io/my-blog/blog/Windows_Program_Search_and_Environment_Variable_Guide</link>
       <description>Windows 下查找程序安装路径和配置环境变量的完整指南，涵盖包管理器、注册表查询、PATH 配置等多种方法。</description>
@@ -15,18 +29,11 @@
       <guid>https://asy424.github.io/my-blog/blog/Windows_Program_Search_and_Environment_Variable_Guide</guid>
     </item>
     <item>
-      <title>在测试一次</title>
-      <link>https://asy424.github.io/my-blog/blog/post-mpjro9hj</link>
-      <description>不需要</description>
+      <title>你好，世界！</title>
+      <link>https://asy424.github.io/my-blog/blog/post-mpjs9zwr</link>
+      <description>我的第一篇博客文章，欢迎来到我的个人空间。</description>
       <pubDate>Sun, 24 May 2026 00:00:00 GMT</pubDate>
-      <guid>https://asy424.github.io/my-blog/blog/post-mpjro9hj</guid>
-    </item>
-    <item>
-      <title>我的第一篇技术笔记</title>
-      <link>https://asy424.github.io/my-blog/blog/first-tech-note</link>
-      <description>记录学习 JavaScript 数组方法的心得与实践</description>
-      <pubDate>Sun, 24 May 2026 00:00:00 GMT</pubDate>
-      <guid>https://asy424.github.io/my-blog/blog/first-tech-note</guid>
+      <guid>https://asy424.github.io/my-blog/blog/post-mpjs9zwr</guid>
     </item>
     <item>
       <title>我是如何搭建这个博客的</title>
