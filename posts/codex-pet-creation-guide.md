@@ -1,9 +1,9 @@
 ---
 title: "Codex 宠物生成教程：三种方式打造你的 AI 伙伴"
-date: "2026-05-31"
+date: "2026-05-30"
 tags: ["教程", "Codex", "AI", "宠物"]
 description: "Codex 的宠物功能有三种获取方式：系统自带的、社区下载的、自己动手建的。这篇教程全部教给你。"
-public: true
+public: false
 ---
 
 ## 前言
