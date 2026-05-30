@@ -3,7 +3,7 @@ title: "Codex 安装与登录教程"
 date: "2026-05-30"
 tags: ["教程", "Codex", "AI", "安装"]
 description: "手把手教你安装 Codex 桌面客户端，用 QQ 邮箱接收验证码完成登录。"
-public: true
+public: false
 ---
 
 ## 前言
