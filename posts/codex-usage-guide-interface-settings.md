@@ -3,7 +3,7 @@ title: "Codex 使用指南：界面、权限、额度与设置"
 date: "2026-05-30"
 tags: ["教程", "Codex", "AI", "使用指南"]
 description: "带你了解 Codex 的整体界面布局、权限模式、额度与模型选择，以及常用的设置项。"
-public: true
+public: false
 ---
 
 ## 前言
