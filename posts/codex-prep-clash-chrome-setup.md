@@ -3,7 +3,7 @@ title: "Codex 准备工作：Clash 科学上网与 Chrome 浏览器安装"
 date: "2026-05-30"
 tags: ["教程", "科学上网", "Clash", "Chrome", "Codex"]
 description: "使用 Codex 前需要先做好准备工作，包括科学上网和安装 Chrome 浏览器。这篇教程手把手教你配置 Clash Verge。"
-public: true
+public: false
 ---
 
 ## 前言
