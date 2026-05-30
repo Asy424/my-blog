@@ -159,7 +159,23 @@ body {
 .prose img {
   max-width: 100%;
   border-radius: 0.5rem;
-  margin: 1.5em 0;
+  margin: 1.5em auto;
+  display: block;
+}
+
+.prose p:has(img) {
+  text-align: center;
+}
+
+.prose p > img:first-child + em:last-child {
+  display: block;
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-style: normal;
+}
+
+.dark .prose p > img:first-child + em:last-child {
+  color: #9ca3af;
 }
 
 .prose hr {

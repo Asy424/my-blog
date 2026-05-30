@@ -8,6 +8,34 @@
     <atom:link href="https://asy424.github.io/my-blog/rss.xml" rel="self" type="application/rss+xml"/>
     
     <item>
+      <title>Codex 宠物生成教程：三种方式打造你的 AI 伙伴</title>
+      <link>https://asy424.github.io/my-blog/blog/codex-pet-creation-guide</link>
+      <description>Codex 的宠物功能有三种获取方式：系统自带的、社区下载的、自己动手建的。这篇教程全部教给你。</description>
+      <pubDate>Sun, 31 May 2026 00:00:00 GMT</pubDate>
+      <guid>https://asy424.github.io/my-blog/blog/codex-pet-creation-guide</guid>
+    </item>
+    <item>
+      <title>Codex 使用指南：界面、权限、额度与设置</title>
+      <link>https://asy424.github.io/my-blog/blog/codex-usage-guide-interface-settings</link>
+      <description>带你了解 Codex 的整体界面布局、权限模式、额度与模型选择，以及常用的设置项。</description>
+      <pubDate>Sat, 30 May 2026 00:00:00 GMT</pubDate>
+      <guid>https://asy424.github.io/my-blog/blog/codex-usage-guide-interface-settings</guid>
+    </item>
+    <item>
+      <title>Codex 准备工作：Clash 科学上网与 Chrome 浏览器安装</title>
+      <link>https://asy424.github.io/my-blog/blog/codex-prep-clash-chrome-setup</link>
+      <description>使用 Codex 前需要先做好准备工作，包括科学上网和安装 Chrome 浏览器。这篇教程手把手教你配置 Clash Verge。</description>
+      <pubDate>Sat, 30 May 2026 00:00:00 GMT</pubDate>
+      <guid>https://asy424.github.io/my-blog/blog/codex-prep-clash-chrome-setup</guid>
+    </item>
+    <item>
+      <title>Codex 安装与登录教程</title>
+      <link>https://asy424.github.io/my-blog/blog/codex-install-login-guide</link>
+      <description>手把手教你安装 Codex 桌面客户端，用 QQ 邮箱接收验证码完成登录。</description>
+      <pubDate>Sat, 30 May 2026 00:00:00 GMT</pubDate>
+      <guid>https://asy424.github.io/my-blog/blog/codex-install-login-guide</guid>
+    </item>
+    <item>
       <title>Stream API 完全指南</title>
       <link>https://asy424.github.io/my-blog/blog/stream-api</link>
       <description></description>
