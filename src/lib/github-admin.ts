@@ -25,14 +25,43 @@ export interface GitHubFile {
   size: number;
 }
 
+interface GitHubContentFile extends GitHubFile {
+  content?: string;
+}
+
+interface GitHubWriteBody {
+  message: string;
+  content: string;
+  sha?: string;
+}
+
+interface GitHubError {
+  message?: string;
+}
+
+function isGitHubFile(file: unknown): file is GitHubFile {
+  return (
+    typeof file === "object" &&
+    file !== null &&
+    "name" in file &&
+    "path" in file &&
+    "sha" in file &&
+    typeof (file as GitHubFile).name === "string" &&
+    typeof (file as GitHubFile).path === "string" &&
+    typeof (file as GitHubFile).sha === "string"
+  );
+}
+
 export async function listPosts(token: string): Promise<GitHubFile[]> {
   const res = await fetch(
     `${API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/posts`,
     { headers: headers(token) }
   );
   if (!res.ok) throw new Error("获取文章列表失败: " + res.status);
-  const data = await res.json();
-  return data.filter((f: any) => f.name.endsWith(".md"));
+  const data = (await res.json()) as unknown;
+  return Array.isArray(data)
+    ? data.filter((file): file is GitHubFile => isGitHubFile(file) && file.name.endsWith(".md"))
+    : [];
 }
 
 export async function getPostContent(
@@ -44,8 +73,8 @@ export async function getPostContent(
     { headers: headers(token) }
   );
   if (!res.ok) throw new Error("获取文章失败: " + res.status);
-  const data = await res.json();
-  const bytes = Uint8Array.from(atob(data.content), (c) => c.charCodeAt(0));
+  const data = (await res.json()) as GitHubContentFile;
+  const bytes = Uint8Array.from(atob(data.content || ""), (c) => c.charCodeAt(0));
   const content = new TextDecoder("utf-8").decode(bytes);
   return { content, sha: data.sha };
 }
@@ -64,12 +93,12 @@ export async function savePost(
         { headers: headers(token) }
       );
       if (res.ok) {
-        const data = await res.json();
+        const data = (await res.json()) as GitHubContentFile;
         sha = data.sha;
       }
     } catch {}
   }
-  const body: any = {
+  const body: GitHubWriteBody = {
     message: sha ? `更新文章: ${path}` : `新文章: ${path}`,
     content: toBase64(content),
   };
@@ -91,7 +120,7 @@ export async function savePost(
         { headers: headers(token) }
       );
       if (getRes.ok) {
-        const data = await getRes.json();
+        const data = (await getRes.json()) as GitHubContentFile;
         body.sha = data.sha;
         const retryRes = await fetch(
           `${API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${path}`,
@@ -100,7 +129,7 @@ export async function savePost(
         if (retryRes.ok) return;
       }
     }
-    const err = await res.json();
+    const err = (await res.json()) as GitHubError;
     throw new Error(err.message || "保存失败: " + res.status);
   }
 }
@@ -119,7 +148,7 @@ export async function deletePost(
     }
   );
   if (!res.ok) {
-    const err = await res.json();
+    const err = (await res.json()) as GitHubError;
     throw new Error(err.message || "删除失败: " + res.status);
   }
 }
@@ -180,7 +209,7 @@ export async function uploadImage(
   );
 
   if (!res.ok) {
-    const err = await res.json();
+    const err = (await res.json()) as GitHubError;
     throw new Error(err.message || "图片上传失败: " + res.status);
   }
 

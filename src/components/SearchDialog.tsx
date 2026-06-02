@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import Fuse from "fuse.js";
 
@@ -18,42 +18,43 @@ interface SearchDialogProps {
 }
 
 export default function SearchDialog({ open, onClose }: SearchDialogProps) {
+  if (!open) return null;
+
+  return <SearchDialogContent onClose={onClose} />;
+}
+
+function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchIndex[]>([]);
   const [index, setIndex] = useState<SearchIndex[]>([]);
+  const [fuse, setFuse] = useState<Fuse<SearchIndex> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const fuseRef = useRef<Fuse<SearchIndex> | null>(null);
 
   useEffect(() => {
-    if (open) {
-      fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/search-index.json`)
-        .then((res) => res.json())
-        .then((data: SearchIndex[]) => {
-          setIndex(data);
-          fuseRef.current = new Fuse(data, {
+    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/search-index.json`)
+      .then((res) => res.json())
+      .then((data: SearchIndex[]) => {
+        setIndex(data);
+        setFuse(
+          new Fuse(data, {
             keys: ["title", "description", "tags"],
             threshold: 0.4,
-          });
-        });
-    }
-  }, [open]);
+          })
+        );
+      });
+  }, []);
 
   useEffect(() => {
-    if (open) {
-      setQuery("");
-      setResults([]);
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
-  }, [open]);
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 100);
+    return () => window.clearTimeout(timer);
+  }, []);
 
-  useEffect(() => {
-    if (!query.trim() || !fuseRef.current) {
-      setResults([]);
-      return;
+  const results = useMemo(() => {
+    if (!query.trim() || !fuse) {
+      return [];
     }
-    const fuseResults = fuseRef.current.search(query);
-    setResults(fuseResults.map((r) => r.item));
-  }, [query]);
+    const fuseResults = fuse.search(query);
+    return fuseResults.map((r) => r.item);
+  }, [fuse, query]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -63,17 +64,13 @@ export default function SearchDialog({ open, onClose }: SearchDialogProps) {
   );
 
   useEffect(() => {
-    if (open) {
-      document.addEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "hidden";
-    }
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "";
     };
-  }, [open, handleKeyDown]);
-
-  if (!open) return null;
+  }, [handleKeyDown]);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh]">

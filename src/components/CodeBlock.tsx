@@ -49,7 +49,7 @@ export default function CodeBlock() {
             button.textContent = "复制";
             button.style.background = "rgba(255, 255, 255, 0.1)";
           }, 2000);
-        } catch (err) {
+        } catch {
           button.textContent = "复制失败";
           setTimeout(() => {
             button.textContent = "复制";
