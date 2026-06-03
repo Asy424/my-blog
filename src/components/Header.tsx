@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
 import SearchDialog from "./SearchDialog";
 import { useState } from "react";
+import { siteConfig } from "@/site.config";
 
 const navLinks = [
   { href: "/", label: "首页" },
@@ -23,7 +24,7 @@ export default function Header() {
       <header className="sticky top-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/" className="text-xl font-bold tracking-tight hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-            我的博客
+            {siteConfig.name}
           </Link>
 
           {/* 桌面导航 */}

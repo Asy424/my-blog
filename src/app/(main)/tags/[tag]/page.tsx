@@ -8,9 +8,13 @@ interface TagPageProps {
 
 export async function generateMetadata({ params }: TagPageProps) {
   const { tag } = await params;
+  const decodedTag = decodeURIComponent(tag);
   return {
-    title: `标签: ${decodeURIComponent(tag)}`,
-    description: `标签 "${decodeURIComponent(tag)}" 下的所有文章`,
+    title: `标签: ${decodedTag}`,
+    description: `标签 "${decodedTag}" 下的所有文章`,
+    alternates: {
+      canonical: `/tags/${encodeURIComponent(decodedTag)}`,
+    },
   };
 }
 

@@ -4,14 +4,13 @@ import { useEffect } from "react";
 
 export default function CodeBlock() {
   useEffect(() => {
-    // 给所有代码块添加复制按钮
+    const cleanups: Array<() => void> = [];
     const codeBlocks = document.querySelectorAll("pre code");
 
     codeBlocks.forEach((codeBlock) => {
       const pre = codeBlock.parentElement;
       if (!pre || pre.querySelector(".copy-button")) return;
 
-      // 创建复制按钮
       const button = document.createElement("button");
       button.className = "copy-button";
       button.textContent = "复制";
@@ -30,35 +29,46 @@ export default function CodeBlock() {
         transition: opacity 0.2s;
       `;
 
-      // 鼠标悬停显示按钮
-      pre.style.position = "relative";
-      pre.addEventListener("mouseenter", () => {
+      const showButton = () => {
         button.style.opacity = "1";
-      });
-      pre.addEventListener("mouseleave", () => {
+      };
+      const hideButton = () => {
         button.style.opacity = "0";
-      });
-
-      // 复制功能
-      button.addEventListener("click", async () => {
+      };
+      const copyCode = async () => {
         try {
           await navigator.clipboard.writeText(codeBlock.textContent || "");
-          button.textContent = "已复制!";
+          button.textContent = "已复制";
           button.style.background = "rgba(34, 197, 94, 0.3)";
-          setTimeout(() => {
+          window.setTimeout(() => {
             button.textContent = "复制";
             button.style.background = "rgba(255, 255, 255, 0.1)";
           }, 2000);
         } catch {
           button.textContent = "复制失败";
-          setTimeout(() => {
+          window.setTimeout(() => {
             button.textContent = "复制";
           }, 2000);
         }
-      });
+      };
 
+      pre.style.position = "relative";
+      pre.addEventListener("mouseenter", showButton);
+      pre.addEventListener("mouseleave", hideButton);
+      button.addEventListener("click", copyCode);
       pre.appendChild(button);
+
+      cleanups.push(() => {
+        pre.removeEventListener("mouseenter", showButton);
+        pre.removeEventListener("mouseleave", hideButton);
+        button.removeEventListener("click", copyCode);
+        button.remove();
+      });
     });
+
+    return () => {
+      cleanups.forEach((cleanup) => cleanup());
+    };
   }, []);
 
   return null;

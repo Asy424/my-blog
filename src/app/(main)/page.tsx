@@ -1,6 +1,12 @@
 import { getSortedPostsData } from "@/lib/posts";
 import PostCard from "@/components/PostCard";
 
+export const metadata = {
+  alternates: {
+    canonical: "/",
+  },
+};
+
 export default function Home() {
   const posts = getSortedPostsData();
 

@@ -31,8 +31,8 @@ jobs:
       - name: 安装依赖
         run: npm ci
 
-      - name: 生成搜索索引和 RSS
-        run: npx tsx src/lib/generate.ts
+      - name: 检查代码
+        run: npm run lint
 
       - name: 构建静态页面
         run: npm run build

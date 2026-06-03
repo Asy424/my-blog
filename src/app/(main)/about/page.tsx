@@ -1,6 +1,9 @@
 export const metadata = {
   title: "关于",
   description: "关于我和这个博客",
+  alternates: {
+    canonical: "/about",
+  },
 };
 
 export default function AboutPage() {

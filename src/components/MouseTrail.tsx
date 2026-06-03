@@ -4,6 +4,10 @@ import { useEffect } from "react";
 
 export default function MouseTrail() {
   useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+
     const canvas = document.createElement("canvas");
     canvas.style.cssText = "position:fixed;top:0;left:0;pointer-events:none;z-index:9999";
     document.body.appendChild(canvas);
@@ -22,11 +26,13 @@ export default function MouseTrail() {
     }
     window.addEventListener("resize", resize);
 
-    window.addEventListener("mousemove", (e) => {
+    function handleMouseMove(e: MouseEvent) {
       mouseX = e.clientX;
       mouseY = e.clientY;
-    });
+    }
+    window.addEventListener("mousemove", handleMouseMove);
 
+    let frameId = 0;
     function animate() {
       hue = (hue + 15) % 360;
       dots.push({ x: mouseX, y: mouseY, alpha: 0.6, hue });
@@ -43,13 +49,17 @@ export default function MouseTrail() {
         ctx.fillStyle = `hsla(${d.hue}, 100%, 60%, ${d.alpha})`;
         ctx.fill();
       }
-      requestAnimationFrame(animate);
+      frameId = requestAnimationFrame(animate);
     }
-    animate();
+    frameId = requestAnimationFrame(animate);
 
     return () => {
-      document.body.removeChild(canvas);
+      cancelAnimationFrame(frameId);
+      if (canvas.parentNode) {
+        canvas.parentNode.removeChild(canvas);
+      }
       window.removeEventListener("resize", resize);
+      window.removeEventListener("mousemove", handleMouseMove);
     };
   }, []);
 

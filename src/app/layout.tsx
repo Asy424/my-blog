@@ -1,13 +1,28 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
+import { siteConfig } from "@/site.config";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteConfig.url),
   title: {
-    default: "我的博客",
-    template: "%s | 我的博客",
+    default: siteConfig.name,
+    template: `%s | ${siteConfig.name}`,
   },
-  description: "个人技术博客，分享编程心得与技术思考",
+  description: siteConfig.description,
+  alternates: {
+    types: {
+      "application/rss+xml": "/rss.xml",
+    },
+  },
+  openGraph: {
+    title: siteConfig.name,
+    description: siteConfig.description,
+    url: siteConfig.url,
+    siteName: siteConfig.name,
+    locale: "zh_CN",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -16,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN" suppressHydrationWarning>
+    <html lang={siteConfig.language} suppressHydrationWarning>
       <body className="min-h-screen flex flex-col bg-background text-foreground antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           {children}

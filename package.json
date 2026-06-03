@@ -6,8 +6,9 @@
     "dev": "next dev",
     "sync": "git pull origin master",
     "new-post": "node scripts/new-post.mjs",
+    "validate-posts": "tsx scripts/validate-posts.mjs",
     "generate": "npx tsx src/lib/generate.ts",
-    "build": "npm run generate && next build",
+    "build": "npm run validate-posts && npm run generate && next build",
     "start": "next start",
     "lint": "eslint"
   },

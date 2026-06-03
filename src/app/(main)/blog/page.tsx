@@ -4,6 +4,9 @@ import PostCard from "@/components/PostCard";
 export const metadata = {
   title: "博客",
   description: "所有博客文章列表",
+  alternates: {
+    canonical: "/blog",
+  },
 };
 
 export default function BlogPage() {

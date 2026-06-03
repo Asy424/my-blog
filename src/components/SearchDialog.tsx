@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Fuse from "fuse.js";
 
 interface SearchIndex {
@@ -24,9 +25,11 @@ export default function SearchDialog({ open, onClose }: SearchDialogProps) {
 }
 
 function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState<SearchIndex[]>([]);
   const [fuse, setFuse] = useState<Fuse<SearchIndex> | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -37,7 +40,7 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
         setFuse(
           new Fuse(data, {
             keys: ["title", "description", "tags"],
-            threshold: 0.4,
+            threshold: 0.35,
           })
         );
       });
@@ -48,34 +51,61 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
     return () => window.clearTimeout(timer);
   }, []);
 
-  const results = useMemo(() => {
-    if (!query.trim() || !fuse) {
-      return [];
-    }
-    const fuseResults = fuse.search(query);
-    return fuseResults.map((r) => r.item);
-  }, [fuse, query]);
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose]
-  );
-
   useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
     document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "";
     };
-  }, [handleKeyDown]);
+  }, []);
+
+  const results = useMemo(() => {
+    const trimmed = query.trim();
+    if (!trimmed || !fuse) {
+      return [];
+    }
+    return fuse.search(trimmed).slice(0, 8).map((result) => result.item);
+  }, [fuse, query]);
+
+  const activeIndex = results.length > 0
+    ? Math.min(selectedIndex, results.length - 1)
+    : 0;
+
+  function openResult(item: SearchIndex) {
+    onClose();
+    router.push(`/blog/${item.slug}`);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Escape") {
+      onClose();
+      return;
+    }
+
+    if (results.length === 0) {
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex((current) => (current + 1) % results.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex((current) => (current - 1 + results.length) % results.length);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      openResult(results[activeIndex]);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh]">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-lg mx-4 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div
+        className="relative w-full max-w-2xl mx-4 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-label="搜索文章"
+      >
         <div className="flex items-center border-b border-gray-200 dark:border-gray-700 px-4">
           <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -84,7 +114,11 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
             ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSelectedIndex(0);
+            }}
+            onKeyDown={handleKeyDown}
             placeholder="搜索文章..."
             className="flex-1 px-3 py-4 bg-transparent outline-none text-base text-gray-900 dark:text-gray-100 placeholder-gray-400"
           />
@@ -92,34 +126,67 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
             ESC
           </kbd>
         </div>
+
         {query && (
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-[28rem] overflow-y-auto">
             {results.length === 0 ? (
               <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                 未找到相关文章
               </div>
             ) : (
               <ul className="py-2">
-                {results.map((item) => (
-                  <li key={item.slug}>
-                    <Link
-                      href={`/blog/${item.slug}`}
-                      onClick={onClose}
-                      className="block px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                    >
-                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {item.title}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        {item.date}
-                      </div>
-                    </Link>
-                  </li>
-                ))}
+                {results.map((item, index) => {
+                  const tags = item.tags.split(",").map((tag) => tag.trim()).filter(Boolean);
+                  const selected = index === activeIndex;
+
+                  return (
+                    <li key={item.slug}>
+                      <Link
+                        href={`/blog/${item.slug}`}
+                        onClick={onClose}
+                        onMouseEnter={() => setSelectedIndex(index)}
+                        className={`block px-4 py-3 transition-colors ${
+                          selected
+                            ? "bg-blue-50 dark:bg-blue-900/30"
+                            : "hover:bg-gray-50 dark:hover:bg-gray-800"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {item.title}
+                            </div>
+                            {item.description && (
+                              <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                                {item.description}
+                              </p>
+                            )}
+                          </div>
+                          <time className="shrink-0 text-xs text-gray-400" dateTime={item.date}>
+                            {item.date}
+                          </time>
+                        </div>
+                        {tags.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs text-gray-500 dark:text-gray-400"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
         )}
+
         {!query && index.length > 0 && (
           <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
             共 {index.length} 篇文章，输入关键词搜索

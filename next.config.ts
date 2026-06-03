@@ -1,12 +1,11 @@
 import type { NextConfig } from "next";
-
-const basePath = "/my-blog";
+import { siteConfig } from "./src/site.config";
 
 const nextConfig: NextConfig = {
   output: "export",
-  basePath,
+  basePath: siteConfig.basePath,
   env: {
-    NEXT_PUBLIC_BASE_PATH: basePath,
+    NEXT_PUBLIC_BASE_PATH: siteConfig.basePath,
   },
   images: {
     unoptimized: true,

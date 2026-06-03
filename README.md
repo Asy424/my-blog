@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 我的博客
 
-## Getting Started
+基于 Next.js App Router 的个人静态博客，内容来自 `posts/` 目录下的 Markdown 文件，构建产物导出到 `out/` 并部署到 GitHub Pages。
 
-First, run the development server:
+## 功能
+
+- Markdown 文章与 frontmatter 元数据
+- 标签页、文章列表和文章详情页
+- 静态搜索索引 `public/search-index.json`
+- RSS Feed `public/rss.xml`
+- `sitemap.xml` 和 `robots.txt`
+- 深色模式、代码高亮和代码块复制按钮
+- 可选的 `/admin` 浏览器编辑器
+
+## 常用命令
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run new-post "文章标题"
+npm run new-post "中文标题" -- --slug readable-slug
+npm run validate-posts
+npm run generate
+npm run lint
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 写文章
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+新文章放在 `posts/` 目录，文件名就是文章 slug。frontmatter 示例：
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```yaml
+---
+title: "文章标题"
+date: "2026-06-03"
+tags: ["技术", "Next.js"]
+description: "文章摘要"
+public: true
+---
+```
 
-## Learn More
+`public: false` 会把文章从列表、搜索索引、RSS、sitemap 和静态详情页中排除。构建前会运行 `validate-posts`，检查必要字段和本地图片路径。
 
-To learn more about Next.js, take a look at the following resources:
+## 静态资源
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+图片放在 `public/images/` 下，文章里可以使用：
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```md
+![说明](/my-blog/images/example.jpg)
+```
 
-## Deploy on Vercel
+或者：
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```md
+![说明](images/example.jpg)
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 后台编辑器
+
+本地开发环境默认可以访问 `/admin`。生产构建默认关闭 `/admin`，避免把 GitHub Token 编辑器公开部署出去。
+
+如果确实需要在生产站启用后台，需要设置：
+
+```bash
+NEXT_PUBLIC_ENABLE_ADMIN=true
+```
+
+后台使用 GitHub Personal Access Token 操作仓库内容。建议只授予当前仓库所需的最小 `contents` 权限。
+
+## 部署
+
+GitHub Actions 在推送到 `master` 后执行：
+
+1. `npm ci`
+2. `npm run lint`
+3. `npm run build`
+4. 上传 `out/` 到 GitHub Pages
+
+站点路径和仓库信息集中在 `src/site.config.ts`。

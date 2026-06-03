@@ -5,23 +5,30 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const postsDir = path.join(__dirname, "..", "posts");
 
-const title = process.argv[2];
+const args = process.argv.slice(2);
+const title = args[0];
+const slugArgIndex = args.findIndex((arg) => arg === "--slug");
+const explicitSlug = slugArgIndex >= 0 ? args[slugArgIndex + 1] : "";
+
 if (!title) {
-  console.error("用法: npm run new-post \"文章标题\"");
+  console.error('用法: npm run new-post "文章标题" -- --slug article-slug');
   process.exit(1);
 }
 
-// 只保留英文、数字、连字符作为文件名，中文等非ASCII字符去掉
-let slug = title
-  .replace(/[^\w\s-]/g, "")
-  .trim()
-  .replace(/\s+/g, "-")
-  .replace(/-+/g, "-")
-  .toLowerCase();
+function slugify(value) {
+  return value
+    .replace(/[^\w\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .toLowerCase();
+}
 
-// 如果纯中文标题导致 slug 为空，用时间戳
-if (!slug) {
-  slug = `post-${Date.now()}`;
+const slug = slugify(explicitSlug || title) || `post-${Date.now()}`;
+
+if (!/^[a-z0-9_-]+(?:-[a-z0-9_-]+)*$/i.test(slug)) {
+  console.error(`slug 只能包含英文字母、数字、下划线和连字符: ${slug}`);
+  process.exit(1);
 }
 
 const now = new Date();
@@ -30,8 +37,9 @@ const date = now.toISOString().split("T")[0];
 const template = `---
 title: "${title}"
 date: "${date}"
-tags: [""]
+tags: []
 description: ""
+public: true
 ---
 
 `;
@@ -44,4 +52,4 @@ if (fs.existsSync(filePath)) {
 }
 
 fs.writeFileSync(filePath, template, "utf8");
-console.log(`✅ 已创建: ${filePath}`);
+console.log(`已创建: ${filePath}`);

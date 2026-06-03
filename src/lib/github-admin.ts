@@ -1,6 +1,7 @@
-const REPO_OWNER = "Asy424";
-const REPO_NAME = "my-blog";
+import { siteConfig, withBasePath } from "@/site.config";
+
 const API_BASE = "https://api.github.com";
+const { owner: REPO_OWNER, repo: REPO_NAME } = siteConfig.github;
 
 function toBase64(str: string): string {
   const bytes = new TextEncoder().encode(str);
@@ -214,7 +215,7 @@ export async function uploadImage(
   }
 
   return {
-    url: `/my-blog/images/${dir}/${name}`,
+    url: withBasePath(`/images/${dir}/${name}`),
     path: `images/${dir}/${name}`,
   };
 }
