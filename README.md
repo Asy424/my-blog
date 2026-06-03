@@ -56,15 +56,9 @@ public: true
 
 ## 后台编辑器
 
-本地开发环境默认可以访问 `/admin`。生产构建默认关闭 `/admin`，避免把 GitHub Token 编辑器公开部署出去。
+线上和本地都可以访问 `/admin`。后台使用 GitHub Personal Access Token 操作仓库内容，页面本身不包含仓库写入权限。
 
-如果确实需要在生产站启用后台，需要设置：
-
-```bash
-NEXT_PUBLIC_ENABLE_ADMIN=true
-```
-
-后台使用 GitHub Personal Access Token 操作仓库内容。建议只授予当前仓库所需的最小 `contents` 权限。
+建议只授予当前仓库所需的最小 `contents` 权限。Token 只保存在当前浏览器会话中，关闭会话后需要重新输入。
 
 ## 部署
 
