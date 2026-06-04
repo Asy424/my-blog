@@ -8,10 +8,9 @@ import { useState } from "react";
 import { siteConfig } from "@/site.config";
 
 const navLinks = [
-  { href: "/", label: "首页" },
-  { href: "/blog", label: "博客" },
-  { href: "/tags", label: "标签" },
-  { href: "/about", label: "关于" },
+  { href: "/blog", label: "文章" },
+  { href: "/series", label: "系列" },
+  { href: "/archive", label: "归档" },
 ];
 
 export default function Header() {
@@ -21,9 +20,9 @@ export default function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800">
-        <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/" className="text-xl font-bold tracking-tight hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+      <header className="sticky top-0 z-50 border-b border-gray-200/80 bg-white/85 backdrop-blur-md dark:border-slate-800/80 dark:bg-slate-950/85">
+        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+          <Link href="/" className="text-lg font-semibold tracking-tight text-gray-950 hover:text-blue-600 dark:text-gray-50 dark:hover:text-blue-300 transition-colors">
             {siteConfig.name}
           </Link>
 
@@ -35,10 +34,10 @@ export default function Header() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
                     isActive
-                      ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30"
-                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800"
+                      ? "text-blue-600 dark:text-blue-300"
+                      : "text-gray-600 hover:text-gray-950 dark:text-gray-400 dark:hover:text-gray-100"
                   }`}
                 >
                   {link.label}
@@ -47,7 +46,7 @@ export default function Header() {
             })}
             <button
               onClick={() => setSearchOpen(true)}
-              className="p-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+              className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-950 dark:text-gray-400 dark:hover:bg-slate-800 dark:hover:text-gray-100 transition-colors cursor-pointer"
               aria-label="搜索"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -61,7 +60,7 @@ export default function Header() {
           <div className="flex items-center gap-1 md:hidden">
             <button
               onClick={() => setSearchOpen(true)}
-              className="p-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+              className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-slate-800 cursor-pointer"
               aria-label="搜索"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -71,7 +70,7 @@ export default function Header() {
             <ThemeToggle />
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="p-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+              className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-slate-800 cursor-pointer"
               aria-label="菜单"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -87,8 +86,8 @@ export default function Header() {
 
         {/* 移动端下拉菜单 */}
         {menuOpen && (
-          <div className="md:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-black">
-            <nav className="max-w-3xl mx-auto px-4 py-2 flex flex-col">
+          <div className="md:hidden border-t border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+            <nav className="max-w-6xl mx-auto px-4 py-2 flex flex-col">
               {navLinks.map((link) => {
                 const isActive = pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href));
                 return (
@@ -98,7 +97,7 @@ export default function Header() {
                     onClick={() => setMenuOpen(false)}
                     className={`px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
                       isActive
-                        ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30"
+                        ? "text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40"
                         : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
                     }`}
                   >

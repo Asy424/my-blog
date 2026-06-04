@@ -14,6 +14,7 @@ import {
   deletePost,
 } from "@/lib/github-admin";
 import { withBasePath } from "@/site.config";
+import { createSeriesSlug, seriesDefinitions } from "@/lib/series-config";
 
 let currentToken = "";
 
@@ -127,6 +128,7 @@ const MDEditor = dynamic(
 );
 
 const TOKEN_STORAGE_KEY = "gh_token";
+const CUSTOM_SERIES_VALUE = "__custom";
 
 function parseFrontmatter(
   content: string
@@ -158,7 +160,9 @@ function buildFrontmatter(
   title: string,
   tags: string,
   description: string,
-  isPublic: boolean
+  isPublic: boolean,
+  seriesSlug: string,
+  seriesTitle: string
 ) {
   const now = new Date().toISOString().split("T")[0];
   const clean = tags.replace(/[\[\]"']+/g, "");
@@ -169,6 +173,8 @@ function buildFrontmatter(
     `title: "${title}"`,
     `date: "${now}"`,
     `tags: [${tagsStr}]`,
+    seriesSlug ? `series: "${seriesSlug}"` : "",
+    seriesTitle ? `seriesTitle: "${seriesTitle}"` : "",
     description ? `description: "${description}"` : "",
     `public: ${isPublic}`,
     "---",
@@ -200,6 +206,8 @@ export default function AdminPage() {
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState("");
   const [description, setDescription] = useState("");
+  const [seriesMode, setSeriesMode] = useState("");
+  const [customSeriesTitle, setCustomSeriesTitle] = useState("");
   const [content, setContent] = useState("");
   const [isPublic, setIsPublic] = useState(true);
   const [editingFile, setEditingFile] = useState<GitHubFile | null>(null);
@@ -277,8 +285,22 @@ export default function AdminPage() {
     return () => window.removeEventListener("admin-image-upload", handler);
   }, []);
 
-  const editorRef = useRef({ title: "", tags: "", description: "", content: "" });
-  editorRef.current = { title, tags, description, content };
+  const editorRef = useRef({
+    title: "",
+    tags: "",
+    description: "",
+    seriesMode: "",
+    customSeriesTitle: "",
+    content: "",
+  });
+  editorRef.current = {
+    title,
+    tags,
+    description,
+    seriesMode,
+    customSeriesTitle,
+    content,
+  };
 
   // 自动保存草稿 + 恢复
   useEffect(() => {
@@ -292,6 +314,8 @@ export default function AdminPage() {
             setTitle(draft.title || "");
             setTags(draft.tags || "");
             setDescription(draft.description || "");
+            setSeriesMode(draft.seriesMode || "");
+            setCustomSeriesTitle(draft.customSeriesTitle || "");
             setContent(draft.content || "");
           } else {
             localStorage.removeItem(DRAFT_KEY);
@@ -329,6 +353,8 @@ export default function AdminPage() {
     setTitle("");
     setTags("");
     setDescription("");
+    setSeriesMode("");
+    setCustomSeriesTitle("");
     setContent("");
     setIsPublic(true);
     setEditingFile(null);
@@ -346,6 +372,21 @@ export default function AdminPage() {
       setTitle(data.title || file.name.replace(".md", ""));
       setTags(Array.isArray(data.tags) ? data.tags.join(", ") : data.tags || "");
       setDescription(data.description || "");
+      if (data.series) {
+        const known = seriesDefinitions.find(
+          (series) => series.slug === data.series || series.title === data.series
+        );
+        if (known) {
+          setSeriesMode(known.slug);
+          setCustomSeriesTitle("");
+        } else {
+          setSeriesMode(CUSTOM_SERIES_VALUE);
+          setCustomSeriesTitle(data.seriesTitle || data.series);
+        }
+      } else {
+        setSeriesMode("");
+        setCustomSeriesTitle("");
+      }
       setIsPublic(data.public !== "false");
       setContent(body.trimStart());
       setEditingFile({ ...file, sha });
@@ -374,7 +415,29 @@ export default function AdminPage() {
     setSuccess("");
 
     const slug = slugify(title);
-    const frontmatter = buildFrontmatter(title.trim(), tags.trim(), description.trim(), isPublic);
+    let selectedSeriesSlug = "";
+    let selectedSeriesTitle = "";
+    if (seriesMode === CUSTOM_SERIES_VALUE) {
+      const title = customSeriesTitle.trim();
+      if (title) {
+        selectedSeriesSlug = createSeriesSlug(title);
+        selectedSeriesTitle = title;
+      }
+    } else if (seriesMode) {
+      const series = seriesDefinitions.find((item) => item.slug === seriesMode);
+      if (series) {
+        selectedSeriesSlug = series.slug;
+        selectedSeriesTitle = series.title;
+      }
+    }
+    const frontmatter = buildFrontmatter(
+      title.trim(),
+      tags.trim(),
+      description.trim(),
+      isPublic,
+      selectedSeriesSlug,
+      selectedSeriesTitle
+    );
     const fullContent = frontmatter + content.trimStart();
 
     try {
@@ -605,21 +668,60 @@ export default function AdminPage() {
             className="w-full px-6 py-4 text-2xl font-bold bg-transparent border-b border-gray-200 dark:border-gray-700 outline-none placeholder-gray-300 dark:placeholder-gray-600"
           />
 
-          {/* 标签和描述 */}
-          <div className="flex items-center gap-4 px-6 py-2 border-b border-gray-200 dark:border-gray-700 text-sm">
+          {/* 分类、标签和描述 */}
+          <div className="flex flex-wrap items-center gap-3 px-6 py-2 border-b border-gray-200 dark:border-gray-700 text-sm">
+            <select
+              value={seriesMode}
+              onChange={(e) => {
+                setSeriesMode(e.target.value);
+                if (e.target.value !== CUSTOM_SERIES_VALUE) {
+                  setCustomSeriesTitle("");
+                }
+              }}
+              className="min-w-36 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-gray-900 outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+              aria-label="所属分类"
+            >
+              <option value="" className="bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100">
+                不加入分类
+              </option>
+              {seriesDefinitions.map((series) => (
+                <option
+                  key={series.slug}
+                  value={series.slug}
+                  className="bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+                >
+                  {series.title}
+                </option>
+              ))}
+              <option
+                value={CUSTOM_SERIES_VALUE}
+                className="bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+              >
+                新建分类...
+              </option>
+            </select>
+            {seriesMode === CUSTOM_SERIES_VALUE && (
+              <input
+                type="text"
+                placeholder="新分类名称"
+                value={customSeriesTitle}
+                onChange={(e) => setCustomSeriesTitle(e.target.value)}
+                className="min-w-36 bg-transparent outline-none placeholder-gray-300 dark:placeholder-gray-600"
+              />
+            )}
             <input
               type="text"
               placeholder="标签（逗号分隔）"
               value={tags}
               onChange={(e) => setTags(e.target.value)}
-              className="bg-transparent outline-none placeholder-gray-300 dark:placeholder-gray-600 flex-1"
+              className="min-w-48 flex-1 bg-transparent outline-none placeholder-gray-300 dark:placeholder-gray-600"
             />
             <input
               type="text"
               placeholder="文章简介（可选）"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="bg-transparent outline-none placeholder-gray-300 dark:placeholder-gray-600 flex-1"
+              className="min-w-56 flex-1 bg-transparent outline-none placeholder-gray-300 dark:placeholder-gray-600"
             />
             <button
               onClick={() => setIsPublic(!isPublic)}

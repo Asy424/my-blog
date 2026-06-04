@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getAllTags, getSortedPostsData } from "@/lib/posts";
+import { getSeriesSummaries } from "@/lib/series";
 import { siteConfig } from "@/site.config";
 
 export const dynamic = "force-static";
@@ -28,12 +29,24 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.5,
   }));
 
+  const series = getSeriesSummaries()
+    .filter((series) => series.postCount > 0)
+    .map((series) => ({
+      url: `${siteConfig.url}/series/${series.slug}`,
+      lastModified: new Date(series.latestDate || Date.now()),
+      changeFrequency: "weekly" as const,
+      priority: 0.6,
+    }));
+
   return [
     page("/", 1),
     page("/blog", 0.9),
+    page("/series", 0.8),
+    page("/archive", 0.7),
     page("/tags", 0.6),
     page("/about", 0.5),
     ...posts,
+    ...series,
     ...tags,
   ];
 }

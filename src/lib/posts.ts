@@ -11,6 +11,8 @@ export interface PostData {
   tags: string[];
   description: string;
   public: boolean;
+  series?: string;
+  seriesTitle?: string;
   content?: string;
 }
 
@@ -31,6 +33,8 @@ export function getSortedPostsData(includePrivate = false): PostData[] {
         tags: matterResult.data.tags || [],
         description: matterResult.data.description || "",
         public: matterResult.data.public !== false,
+        series: matterResult.data.series,
+        seriesTitle: matterResult.data.seriesTitle,
       };
     });
 
@@ -59,6 +63,8 @@ export function getPostBySlug(slug: string): PostData | null {
       tags: matterResult.data.tags || [],
       description: matterResult.data.description || "",
       public: matterResult.data.public !== false,
+      series: matterResult.data.series,
+      seriesTitle: matterResult.data.seriesTitle,
       content: matterResult.content,
     };
   } catch {
