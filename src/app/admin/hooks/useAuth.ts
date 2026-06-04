@@ -14,14 +14,16 @@ export function useAuth() {
   useEffect(() => {
     const saved = sessionStorage.getItem(TOKEN_STORAGE_KEY);
     if (saved) {
-      setToken(saved);
-      setIsAuthenticated(true);
+      queueMicrotask(() => {
+        setToken(saved);
+        setIsAuthenticated(true);
+      });
     }
   }, []);
 
   const login = useCallback(async (inputToken: string) => {
     const t = inputToken.trim();
-    if (!t) return;
+    if (!t) return false;
 
     setAuthLoading(true);
     setAuthError("");

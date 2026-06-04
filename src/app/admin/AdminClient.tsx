@@ -7,7 +7,6 @@ import {
   listPosts,
   getPostContent,
   savePost,
-  uploadImage,
   deletePost,
 } from "@/lib/github-admin";
 import { withBasePath } from "@/site.config";
@@ -147,21 +146,28 @@ export default function AdminPage() {
   const [content, setContent] = useState("");
   const [isPublic, setIsPublic] = useState(true);
   const [editingFile, setEditingFile] = useState<GitHubFile | null>(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const [tokenInput, setTokenInput] = useState("");
   const [darkEditor, setDarkEditor] = useState(false);
 
-  // detect theme for editor
+  // detect theme for editor — subscribe to DOM class changes
   useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const root = document.documentElement;
-    setDarkEditor(root.classList.contains("dark") || mq.matches);
-    const observer = new MutationObserver(() => {
-      setDarkEditor(root.classList.contains("dark"));
-    });
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const getDark = () => root.classList.contains("dark") || mq.matches;
+
+    // deferred initial sync to avoid set-state-in-effect
+    queueMicrotask(() => setDarkEditor(getDark()));
+
+    const observer = new MutationObserver(() => setDarkEditor(getDark()));
     observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
+
+    const mqHandler = () => setDarkEditor(getDark());
+    mq.addEventListener("change", mqHandler);
+    return () => {
+      observer.disconnect();
+      mq.removeEventListener("change", mqHandler);
+    };
   }, []);
 
   // load posts
@@ -199,7 +205,9 @@ export default function AdminPage() {
   }, [token, addToast]);
 
   useEffect(() => {
-    if (isAuthenticated && token) loadPosts();
+    if (isAuthenticated && token) {
+      queueMicrotask(() => void loadPosts());
+    }
   }, [isAuthenticated, token, loadPosts]);
 
   // draft management
@@ -213,16 +221,18 @@ export default function AdminPage() {
       try {
         const draft = JSON.parse(saved);
         if (draft.title || draft.content) {
-          if (confirm("检测到未保存的草稿，是否恢复？")) {
-            setTitle(draft.title || "");
-            setTags(draft.tags || "");
-            setDescription(draft.description || "");
-            setSeriesMode(draft.seriesMode || "");
-            setCustomSeriesTitle(draft.customSeriesTitle || "");
-            setContent(draft.content || "");
-          } else {
-            localStorage.removeItem(DRAFT_KEY);
-          }
+          queueMicrotask(() => {
+            if (confirm("检测到未保存的草稿，是否恢复？")) {
+              setTitle(draft.title || "");
+              setTags(draft.tags || "");
+              setDescription(draft.description || "");
+              setSeriesMode(draft.seriesMode || "");
+              setCustomSeriesTitle(draft.customSeriesTitle || "");
+              setContent(draft.content || "");
+            } else {
+              localStorage.removeItem(DRAFT_KEY);
+            }
+          });
         }
       } catch {}
     }
@@ -235,21 +245,21 @@ export default function AdminPage() {
     return () => clearInterval(timer);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // track unsaved changes
-  useEffect(() => {
-    if (title || content) setHasUnsavedChanges(true);
-  }, [title, content, tags, description, seriesMode, isPublic]);
+  // Track unsaved changes via ref so the unload listener can stay stable.
+  const hasUnsavedChanges = useRef(false);
+  hasUnsavedChanges.current =
+    title !== "" || content !== "" || tags !== "" || description !== "";
 
   // beforeunload warning
   useEffect(() => {
     function handler(e: BeforeUnloadEvent) {
-      if (hasUnsavedChanges) {
+      if (hasUnsavedChanges.current) {
         e.preventDefault();
       }
     }
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [hasUnsavedChanges]);
+  }, []);
 
   // Ctrl+S shortcut
   useEffect(() => {
@@ -277,7 +287,6 @@ export default function AdminPage() {
     setContent("");
     setIsPublic(true);
     setEditingFile(null);
-    setHasUnsavedChanges(false);
   }
 
   async function handleSelectPost(file: GitHubFile) {
@@ -306,7 +315,6 @@ export default function AdminPage() {
       setIsPublic(data.public !== "false");
       setContent(body.trimStart());
       setEditingFile({ ...file, sha });
-      setHasUnsavedChanges(false);
 
       const t = data.title || file.name.replace(".md", "");
       setPostTitles((prev) => {
@@ -359,7 +367,6 @@ export default function AdminPage() {
       const path = editingFile ? editingFile.path : `posts/${slugify(title)}.md`;
       await savePost(token, path, fullContent, editingFile?.sha);
       addToast("success", editingFile ? "文章已更新" : "文章已发布");
-      setHasUnsavedChanges(false);
       localStorage.removeItem("admin-draft");
       setPostTitles((prev) => ({ ...prev, [path]: title.trim() }));
       await loadPosts();
