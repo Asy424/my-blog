@@ -99,16 +99,16 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh]">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div
-        className="relative w-full max-w-2xl mx-4 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+        className="relative w-full max-w-2xl mx-4 bg-card rounded-xl shadow-2xl border border-border overflow-hidden animate-fade-in-up"
         role="dialog"
         aria-modal="true"
         aria-label="搜索文章"
       >
-        <div className="flex items-center border-b border-gray-200 dark:border-gray-700 px-4">
-          <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        <div className="flex items-center border-b border-border px-4">
+          <svg className="w-5 h-5 text-muted shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input
             ref={inputRef}
@@ -120,9 +120,9 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
             }}
             onKeyDown={handleKeyDown}
             placeholder="搜索文章..."
-            className="flex-1 px-3 py-4 bg-transparent outline-none text-base text-gray-900 dark:text-gray-100 placeholder-gray-400"
+            className="flex-1 px-3 py-4 bg-transparent outline-none text-base text-foreground placeholder-muted"
           />
-          <kbd className="hidden sm:inline-flex items-center px-2 py-1 text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 rounded">
+          <kbd className="hidden sm:inline-flex items-center px-2 py-1 text-xs text-muted bg-accent-soft rounded font-mono">
             ESC
           </kbd>
         </div>
@@ -130,7 +130,7 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
         {query && (
           <div className="max-h-[28rem] overflow-y-auto">
             {results.length === 0 ? (
-              <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+              <div className="px-4 py-8 text-center text-muted">
                 未找到相关文章
               </div>
             ) : (
@@ -147,22 +147,22 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
                         onMouseEnter={() => setSelectedIndex(index)}
                         className={`block px-4 py-3 transition-colors ${
                           selected
-                            ? "bg-blue-50 dark:bg-blue-900/30"
-                            : "hover:bg-gray-50 dark:hover:bg-gray-800"
+                            ? "bg-accent-soft"
+                            : "hover:bg-card-hover"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="min-w-0">
-                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            <div className="text-sm font-medium text-foreground">
                               {item.title}
                             </div>
                             {item.description && (
-                              <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                              <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted">
                                 {item.description}
                               </p>
                             )}
                           </div>
-                          <time className="shrink-0 text-xs text-gray-400" dateTime={item.date}>
+                          <time className="shrink-0 text-xs text-muted" dateTime={item.date}>
                             {item.date}
                           </time>
                         </div>
@@ -171,7 +171,7 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
                             {tags.map((tag) => (
                               <span
                                 key={tag}
-                                className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs text-gray-500 dark:text-gray-400"
+                                className="rounded-full bg-accent-soft px-2 py-0.5 text-xs text-accent"
                               >
                                 {tag}
                               </span>
@@ -188,7 +188,7 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
         )}
 
         {!query && index.length > 0 && (
-          <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+          <div className="px-4 py-3 text-sm text-muted">
             共 {index.length} 篇文章，输入关键词搜索
           </div>
         )}

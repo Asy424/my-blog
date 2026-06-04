@@ -1,7 +1,5 @@
 "use client";
 
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports, @typescript-eslint/no-unused-vars, react-hooks/set-state-in-effect */
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import type { GitHubFile } from "@/lib/github-admin";
@@ -9,14 +7,16 @@ import {
   listPosts,
   getPostContent,
   savePost,
-  verifyToken,
   uploadImage,
   deletePost,
 } from "@/lib/github-admin";
 import { withBasePath } from "@/site.config";
 import { createSeriesSlug, seriesDefinitions } from "@/lib/series-config";
-
-let currentToken = "";
+import { useAuth } from "./hooks/useAuth";
+import { useImageUpload } from "./hooks/useImageUpload";
+import PostSidebar from "./components/PostSidebar";
+import TagInput from "./components/TagInput";
+import StatusBar, { useToasts } from "./components/StatusBar";
 
 const MDEditor = dynamic(
   async () => {
@@ -29,85 +29,20 @@ const MDEditor = dynamic(
     const commands = getCommands();
     const extraCommands = getExtraCommands();
 
-    commands.forEach((cmd: any) => {
-      if (cmd.name === "image") {
-        cmd.execute = (_state: any, api: any) => {
-          const input = document.createElement("input");
-          input.type = "file";
-          input.accept = "image/*";
-          input.style.display = "none";
-          document.body.appendChild(input);
-          input.onchange = async () => {
-            const file = input.files?.[0];
-            document.body.removeChild(input);
-            if (!file) return;
-            if (!currentToken) {
-              alert("Token 未设置，请重新登录");
-              return;
-            }
-            window.dispatchEvent(
-              new CustomEvent("admin-image-upload", {
-                detail: { status: "start" },
-              })
-            );
-            try {
-              const { url } = await uploadImage(currentToken, file);
-              window.dispatchEvent(
-                new CustomEvent("admin-image-upload", {
-                  detail: { status: "done", text: `\n![${file.name}](${url})\n` },
-                })
-              );
-            } catch (e: any) {
-              window.dispatchEvent(
-                new CustomEvent("admin-image-upload", {
-                  detail: { status: "error", message: e.message || "未知错误" },
-                })
-              );
-            }
-          };
-          input.click();
-        };
-      }
-      if (cmd.name === "link") {
-        cmd.execute = (state: any, api: any) => {
-          const title = window.prompt(
-            "请输入链接标题：",
-            state.selectedText || ""
-          );
-          if (title === null) return;
-          const url = window.prompt("请输入链接地址：", "https://");
-          if (url) {
-            api.replaceSelection(`[${title}](${url})`);
-          }
-        };
-      }
-    });
-
+    // 图片和链接命令在组件内通过 hooks 处理，这里保留默认行为
     commands.push({
       name: "center",
       keyCommand: "center",
       buttonProps: { "aria-label": "居中文字", title: "居中文字" },
-      icon: (() => {
-        const React = require("react");
-        return React.createElement(
-          "svg",
-          {
-            width: "14",
-            height: "14",
-            viewBox: "0 0 20 20",
-            fill: "currentColor",
-          },
-          React.createElement("path", {
-            d: "M4 3h12v2H4V3zm2 4h8v2H6V7zm-2 4h12v2H4v-2zm2 4h8v2H6v-2z",
-          })
-        );
-      })(),
-      execute: (_state: any, api: any) => {
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M4 3h12v2H4V3zm2 4h8v2H6V7zm-2 4h12v2H4v-2zm2 4h8v2H6v-2z" />
+        </svg>
+      ),
+      execute: (_state: { selectedText: string }, api: { replaceSelection: (s: string) => void }) => {
         const selected = _state.selectedText || "";
         if (selected) {
-          api.replaceSelection(
-            `<center>\n\n${selected}\n\n</center>`
-          );
+          api.replaceSelection(`<center>\n\n${selected}\n\n</center>`);
         } else {
           api.replaceSelection(`<center>\n\n\n\n</center>`);
         }
@@ -115,20 +50,22 @@ const MDEditor = dynamic(
     });
 
     return {
-      default: (props: any) => (
-        <Editor
-          {...props}
-          commands={commands}
-          extraCommands={extraCommands}
-        />
+      default: (props: Record<string, unknown>) => (
+        <Editor {...props} commands={commands} extraCommands={extraCommands} />
       ),
     };
   },
   { ssr: false }
 );
 
-const TOKEN_STORAGE_KEY = "gh_token";
 const CUSTOM_SERIES_VALUE = "__custom";
+
+interface PostMeta {
+  title: string;
+  date?: string;
+  isPublic?: boolean;
+  series?: string;
+}
 
 function parseFrontmatter(
   content: string
@@ -142,7 +79,6 @@ function parseFrontmatter(
     if (sep <= 0) continue;
     const key = line.slice(0, sep).trim();
     let val = line.slice(sep + 2).trim().replace(/^"|"$/g, "");
-    // 尝试解析数组格式 tags: ["a", "b"] 或 tags: []
     if (val.startsWith("[") && val.endsWith("]")) {
       try {
         const arr = JSON.parse(val);
@@ -183,24 +119,24 @@ function buildFrontmatter(
 }
 
 function slugify(title: string) {
-  // 只保留英文、数字、连字符，中文等非ASCII字符去掉
   const cleaned = title
     .replace(/[^a-zA-Z0-9\s-]/g, "")
     .trim()
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .toLowerCase();
-  // 如果纯中文标题导致为空，用时间戳
   return cleaned || `post-${Date.now().toString(36)}`;
 }
 
 export default function AdminPage() {
-  const [token, setToken] = useState("");
-  const [stored, setStored] = useState(false);
+  const { token, isAuthenticated, authLoading, authError, login, logout } = useAuth();
+  const { uploading, uploadError, upload } = useImageUpload(token);
+  const { toasts, addToast, dismissToast } = useToasts();
+
   const [posts, setPosts] = useState<GitHubFile[]>([]);
+  const [postTitles, setPostTitles] = useState<Record<string, string>>({});
+  const [postMeta, setPostMeta] = useState<Record<string, PostMeta>>({});
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   // editor state
   const [title, setTitle] = useState("");
@@ -211,98 +147,65 @@ export default function AdminPage() {
   const [content, setContent] = useState("");
   const [isPublic, setIsPublic] = useState(true);
   const [editingFile, setEditingFile] = useState<GitHubFile | null>(null);
-  const [postTitles, setPostTitles] = useState<Record<string, string>>({});
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  const [uploading, setUploading] = useState(false);
-
-  // token input
   const [tokenInput, setTokenInput] = useState("");
+  const [darkEditor, setDarkEditor] = useState(false);
 
+  // detect theme for editor
   useEffect(() => {
-    const saved = sessionStorage.getItem(TOKEN_STORAGE_KEY);
-    if (saved) {
-      setToken(saved);
-      setStored(true);
-      currentToken = saved;
-    }
-    const titles = localStorage.getItem("admin-titles");
-    if (titles) {
-      try { setPostTitles(JSON.parse(titles)); } catch {}
-    }
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const root = document.documentElement;
+    setDarkEditor(root.classList.contains("dark") || mq.matches);
+    const observer = new MutationObserver(() => {
+      setDarkEditor(root.classList.contains("dark"));
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    currentToken = token;
-  }, [token]);
-
+  // load posts
   const loadPosts = useCallback(async () => {
     setLoading(true);
-    setError("");
     try {
-      const ok = await verifyToken(token);
-      if (!ok) {
-        setError("Token 无效，请重新设置");
-        sessionStorage.removeItem(TOKEN_STORAGE_KEY);
-        setStored(false);
-        return;
-      }
       const data = await listPosts(token);
       setPosts(data);
-    } catch (e: any) {
-      setError(e.message);
+      // parse metadata for sidebar display
+      const titles: Record<string, string> = {};
+      const meta: Record<string, PostMeta> = {};
+      for (const file of data) {
+        try {
+          const { content: raw } = await getPostContent(token, file.path);
+          const { data: fm } = parseFrontmatter(raw);
+          titles[file.path] = fm.title || file.name.replace(".md", "");
+          meta[file.path] = {
+            title: fm.title || "",
+            date: fm.date || "",
+            isPublic: fm.public !== "false",
+            series: fm.series || "",
+          };
+        } catch {
+          titles[file.path] = file.name.replace(".md", "");
+        }
+      }
+      setPostTitles((prev) => ({ ...prev, ...titles }));
+      setPostMeta((prev) => ({ ...prev, ...meta }));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "加载失败";
+      addToast("error", msg);
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, addToast]);
 
   useEffect(() => {
-    if (stored && token) loadPosts();
-  }, [stored, token, loadPosts]);
+    if (isAuthenticated && token) loadPosts();
+  }, [isAuthenticated, token, loadPosts]);
 
-  useEffect(() => {
-    function handler(e: Event) {
-      const { detail } = e as CustomEvent;
-      if (detail.status === "start") {
-        setUploading(true);
-      } else if (detail.status === "done") {
-        setUploading(false);
-        const textarea = document.querySelector(
-          ".w-md-editor-text-input"
-        ) as HTMLTextAreaElement;
-        const pos = textarea?.selectionStart;
-        setContent((prev) => {
-          if (pos !== undefined && pos !== null) {
-            return prev.slice(0, pos) + detail.text + prev.slice(pos);
-          }
-          return prev + detail.text;
-        });
-      } else if (detail.status === "error") {
-        setUploading(false);
-        setError("图片上传失败: " + detail.message);
-      }
-    }
-    window.addEventListener("admin-image-upload", handler);
-    return () => window.removeEventListener("admin-image-upload", handler);
-  }, []);
+  // draft management
+  const editorRef = useRef({ title, tags, description, seriesMode, customSeriesTitle, content });
+  editorRef.current = { title, tags, description, seriesMode, customSeriesTitle, content };
 
-  const editorRef = useRef({
-    title: "",
-    tags: "",
-    description: "",
-    seriesMode: "",
-    customSeriesTitle: "",
-    content: "",
-  });
-  editorRef.current = {
-    title,
-    tags,
-    description,
-    seriesMode,
-    customSeriesTitle,
-    content,
-  };
-
-  // 自动保存草稿 + 恢复
   useEffect(() => {
     const DRAFT_KEY = "admin-draft";
     const saved = localStorage.getItem(DRAFT_KEY);
@@ -332,22 +235,38 @@ export default function AdminPage() {
     return () => clearInterval(timer);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function handleTokenSubmit() {
-    const t = tokenInput.trim();
-    if (!t) return;
-    sessionStorage.setItem(TOKEN_STORAGE_KEY, t);
-    setToken(t);
-    setTokenInput("");
-    setStored(true);
-  }
+  // track unsaved changes
+  useEffect(() => {
+    if (title || content) setHasUnsavedChanges(true);
+  }, [title, content, tags, description, seriesMode, isPublic]);
 
-  function handleLogout() {
-    sessionStorage.removeItem(TOKEN_STORAGE_KEY);
-    setToken("");
-    setStored(false);
-    setPosts([]);
-    resetEditor();
-  }
+  // beforeunload warning
+  useEffect(() => {
+    function handler(e: BeforeUnloadEvent) {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+      }
+    }
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasUnsavedChanges]);
+
+  // Ctrl+S shortcut
+  useEffect(() => {
+    function handler(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        handlePublish();
+      }
+    }
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }); // intentionally no deps — always has latest handlePublish
+
+  // show upload errors as toasts
+  useEffect(() => {
+    if (uploadError) addToast("error", uploadError);
+  }, [uploadError, addToast]);
 
   function resetEditor() {
     setTitle("");
@@ -358,14 +277,11 @@ export default function AdminPage() {
     setContent("");
     setIsPublic(true);
     setEditingFile(null);
-    setError("");
-    setSuccess("");
+    setHasUnsavedChanges(false);
   }
 
   async function handleSelectPost(file: GitHubFile) {
     setLoading(true);
-    setError("");
-    setSuccess("");
     try {
       const { content: raw, sha } = await getPostContent(token, file.path);
       const { data, body } = parseFrontmatter(raw);
@@ -374,7 +290,7 @@ export default function AdminPage() {
       setDescription(data.description || "");
       if (data.series) {
         const known = seriesDefinitions.find(
-          (series) => series.slug === data.series || series.title === data.series
+          (s) => s.slug === data.series || s.title === data.series
         );
         if (known) {
           setSeriesMode(known.slug);
@@ -390,15 +306,16 @@ export default function AdminPage() {
       setIsPublic(data.public !== "false");
       setContent(body.trimStart());
       setEditingFile({ ...file, sha });
-      // 记住标题
+      setHasUnsavedChanges(false);
+
       const t = data.title || file.name.replace(".md", "");
       setPostTitles((prev) => {
         const next = { ...prev, [file.path]: t };
-        localStorage.setItem("admin-titles", JSON.stringify(next));
         return next;
       });
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "加载文章失败";
+      addToast("error", msg);
     } finally {
       setLoading(false);
     }
@@ -406,30 +323,28 @@ export default function AdminPage() {
 
   async function handlePublish() {
     if (!title.trim()) {
-      setError("请输入文章标题");
+      addToast("error", "请输入文章标题");
       return;
     }
 
     setLoading(true);
-    setError("");
-    setSuccess("");
 
-    const slug = slugify(title);
     let selectedSeriesSlug = "";
     let selectedSeriesTitle = "";
     if (seriesMode === CUSTOM_SERIES_VALUE) {
-      const title = customSeriesTitle.trim();
-      if (title) {
-        selectedSeriesSlug = createSeriesSlug(title);
-        selectedSeriesTitle = title;
+      const t = customSeriesTitle.trim();
+      if (t) {
+        selectedSeriesSlug = createSeriesSlug(t);
+        selectedSeriesTitle = t;
       }
     } else if (seriesMode) {
-      const series = seriesDefinitions.find((item) => item.slug === seriesMode);
-      if (series) {
-        selectedSeriesSlug = series.slug;
-        selectedSeriesTitle = series.title;
+      const s = seriesDefinitions.find((item) => item.slug === seriesMode);
+      if (s) {
+        selectedSeriesSlug = s.slug;
+        selectedSeriesTitle = s.title;
       }
     }
+
     const frontmatter = buildFrontmatter(
       title.trim(),
       tags.trim(),
@@ -441,97 +356,80 @@ export default function AdminPage() {
     const fullContent = frontmatter + content.trimStart();
 
     try {
-      const path = editingFile
-        ? editingFile.path
-        : `posts/${slug}.md`;
-
-      await savePost(
-        token,
-        path,
-        fullContent,
-        editingFile?.sha
-      );
-      setSuccess("发布成功！已提交到 GitHub。如果要在 VS Code 继续编辑，先执行 npm run sync 拉取最新代码");
+      const path = editingFile ? editingFile.path : `posts/${slugify(title)}.md`;
+      await savePost(token, path, fullContent, editingFile?.sha);
+      addToast("success", editingFile ? "文章已更新" : "文章已发布");
+      setHasUnsavedChanges(false);
       localStorage.removeItem("admin-draft");
-      // 更新标题映射
-      setPostTitles((prev) => {
-        const next = { ...prev, [path]: title.trim() };
-        localStorage.setItem("admin-titles", JSON.stringify(next));
-        return next;
-      });
+      setPostTitles((prev) => ({ ...prev, [path]: title.trim() }));
       await loadPosts();
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "保存失败";
+      addToast("error", msg);
     } finally {
       setLoading(false);
     }
   }
 
-  async function uploadAndInsert(file: File) {
-    setUploading(true);
-    setError("");
-    try {
-      const { url } = await uploadImage(token, file);
-      const md = `\n![${file.name}](${url})\n`;
-      const textarea = document.querySelector(
-        ".w-md-editor-text-input"
-      ) as HTMLTextAreaElement;
-      const pos = textarea?.selectionStart;
-      setContent((prev) => {
-        if (pos !== undefined && pos !== null) {
-          return prev.slice(0, pos) + md + prev.slice(pos);
-        }
-        return prev + md;
-      });
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setUploading(false);
-    }
+  async function handleImageInsert(file: File) {
+    const md = await upload(file);
+    if (!md) return;
+    const textarea = document.querySelector(
+      ".w-md-editor-text-input"
+    ) as HTMLTextAreaElement | null;
+    const pos = textarea?.selectionStart;
+    setContent((prev) => {
+      if (pos != null) {
+        return prev.slice(0, pos) + md + prev.slice(pos);
+      }
+      return prev + md;
+    });
+    addToast("success", "图片已上传");
   }
 
   function handlePaste(e: React.ClipboardEvent) {
-    const items = Array.from(e.clipboardData.files || []);
-    const image = items.find((f) => f.type.startsWith("image/"));
+    const image = Array.from(e.clipboardData.files || []).find((f) =>
+      f.type.startsWith("image/")
+    );
     if (image) {
       e.preventDefault();
-      uploadAndInsert(image);
+      handleImageInsert(image);
     }
   }
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
-    const items = Array.from(e.dataTransfer.files || []);
-    const image = items.find((f) => f.type.startsWith("image/"));
-    if (image) {
-      uploadAndInsert(image);
-    }
+    const image = Array.from(e.dataTransfer.files || []).find((f) =>
+      f.type.startsWith("image/")
+    );
+    if (image) handleImageInsert(image);
   }
 
   async function handleDelete() {
     if (!editingFile) return;
-    if (!confirm(`确认删除文章「${title || editingFile.name}」？\n此操作不可撤销。`)) return;
+    if (!confirm(`确认删除「${title || editingFile.name}」？此操作不可撤销。`)) return;
 
     setLoading(true);
-    setError("");
     try {
       await deletePost(token, editingFile.path, editingFile.sha);
-      setSuccess("文章已删除");
+      addToast("success", "文章已删除");
       resetEditor();
       await loadPosts();
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "删除失败";
+      addToast("error", msg);
     } finally {
       setLoading(false);
     }
   }
 
-  if (!stored) {
+  // ── Login screen ──
+  if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8 w-full max-w-md">
-          <h1 className="text-2xl font-bold mb-2">管理员登录</h1>
-          <p className="text-sm text-gray-500 mb-6">
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="bg-card rounded-xl shadow-sm border border-border p-8 w-full max-w-md animate-fade-in-up">
+          <h1 className="text-2xl font-display font-normal mb-2 text-foreground">管理员登录</h1>
+          <p className="text-sm text-muted mb-6">
             输入 GitHub Personal Access Token 以访问编辑器
           </p>
           <p className="text-xs text-amber-600 dark:text-amber-400 mb-4 leading-relaxed">
@@ -542,48 +440,46 @@ export default function AdminPage() {
             placeholder="粘贴你的 GitHub Token..."
             value={tokenInput}
             onChange={(e) => setTokenInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleTokenSubmit()}
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent outline-none focus:border-blue-500 mb-4"
+            onKeyDown={(e) => e.key === "Enter" && login(tokenInput)}
+            className="w-full px-4 py-2.5 rounded-lg border border-border bg-transparent outline-none focus:border-accent transition-colors text-foreground placeholder-muted mb-4"
           />
-          {error && (
-            <p className="text-red-500 text-sm mb-4">{error}</p>
+          {authError && (
+            <p className="text-red-500 text-sm mb-4">{authError}</p>
           )}
           <button
-            onClick={handleTokenSubmit}
-            className="w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
+            onClick={() => login(tokenInput)}
+            disabled={authLoading}
+            className="w-full px-4 py-2.5 rounded-lg bg-foreground text-background font-medium hover:bg-accent transition-colors disabled:opacity-50 cursor-pointer"
           >
-            进入管理后台
+            {authLoading ? "验证中..." : "进入管理后台"}
           </button>
         </div>
       </div>
     );
   }
 
+  // ── Main editor ──
   return (
-    <div className="h-screen flex flex-col bg-white dark:bg-gray-900">
-      {/* 顶部栏 */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 z-10">
+    <div className="h-screen flex flex-col bg-background">
+      <StatusBar toasts={toasts} onDismiss={dismissToast} />
+
+      {/* Top bar */}
+      <header className="flex items-center justify-between px-5 py-2.5 border-b border-border bg-card z-10 shrink-0">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold">写文章</h1>
+          <h1 className="text-base font-semibold text-foreground">写文章</h1>
           {editingFile && (
-            <span className="text-sm text-gray-400">
-              编辑: {editingFile.name}
+            <span className="text-xs text-muted px-2 py-0.5 rounded bg-accent-soft">
+              {editingFile.name}
             </span>
           )}
-        </div>
-        <div className="flex items-center gap-3">
           {uploading && (
-            <span className="text-sm text-blue-500">图片上传中...</span>
+            <span className="text-xs text-accent animate-pulse">上传中...</span>
           )}
-          {success && (
-            <span className="text-sm text-green-600">{success}</span>
-          )}
-          {error && (
-            <span className="text-sm text-red-500">{error}</span>
-          )}
+        </div>
+        <div className="flex items-center gap-2">
           <button
             onClick={resetEditor}
-            className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-card-hover text-foreground transition-colors cursor-pointer"
           >
             新建
           </button>
@@ -593,7 +489,7 @@ export default function AdminPage() {
                 const slug = editingFile.path.replace(/^posts\//, "").replace(/\.md$/, "");
                 window.open(withBasePath(`/blog/${slug}`), "_blank");
               }}
-              className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-card-hover text-foreground transition-colors cursor-pointer"
             >
               预览
             </button>
@@ -601,21 +497,22 @@ export default function AdminPage() {
           <button
             onClick={handlePublish}
             disabled={loading}
-            className="px-4 py-1.5 text-sm rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-4 py-1.5 text-xs rounded-md bg-foreground text-background font-medium hover:bg-accent disabled:opacity-50 transition-colors cursor-pointer"
           >
             {loading ? "处理中..." : editingFile ? "更新" : "发布"}
           </button>
           {editingFile && (
             <button
               onClick={handleDelete}
-              className="px-3 py-1.5 text-sm rounded-md border border-red-300 dark:border-red-800 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+              className="px-3 py-1.5 text-xs rounded-md border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
             >
               删除
             </button>
           )}
+          <div className="w-px h-5 bg-border mx-1" />
           <button
-            onClick={handleLogout}
-            className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+            onClick={logout}
+            className="px-3 py-1.5 text-xs rounded-md text-muted hover:text-foreground hover:bg-card-hover transition-colors cursor-pointer"
           >
             退出
           </button>
@@ -623,53 +520,34 @@ export default function AdminPage() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* 侧边栏 */}
-        <aside className="w-64 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex flex-col">
-          <div className="p-3 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-              文章列表 ({posts.length})
-            </h2>
-          </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {posts.map((post) => (
-              <button
-                key={post.sha}
-                onClick={() => handleSelectPost(post)}
-                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                  editingFile?.path === post.path
-                    ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                    : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-                }`}
-              >
-                <span className="truncate block">
-                  {postTitles[post.path] || post.name.replace(".md", "")}
-                </span>
-                <span className="truncate block text-xs text-gray-400 mt-0.5">
-                  ./{post.name}
-                </span>
-              </button>
-            ))}
-          </div>
-        </aside>
+        {/* Sidebar */}
+        <PostSidebar
+          posts={posts}
+          postTitles={postTitles}
+          postMeta={postMeta}
+          activePath={editingFile?.path || null}
+          onSelect={handleSelectPost}
+          count={posts.length}
+        />
 
-        {/* 编辑器区域 */}
+        {/* Editor area */}
         <main
           className="flex-1 flex flex-col overflow-hidden"
           onPaste={handlePaste}
           onDrop={handleDrop}
           onDragOver={(e) => e.preventDefault()}
         >
-          {/* 标题 */}
+          {/* Title */}
           <input
             type="text"
             placeholder="输入文章标题..."
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-6 py-4 text-2xl font-bold bg-transparent border-b border-gray-200 dark:border-gray-700 outline-none placeholder-gray-300 dark:placeholder-gray-600"
+            className="w-full px-6 py-4 text-2xl font-display font-normal bg-transparent border-b border-border outline-none placeholder-muted/50 text-foreground"
           />
 
-          {/* 分类、标签和描述 */}
-          <div className="flex flex-wrap items-center gap-3 px-6 py-2 border-b border-gray-200 dark:border-gray-700 text-sm">
+          {/* Meta bar */}
+          <div className="flex flex-wrap items-center gap-3 px-6 py-2 border-b border-border text-sm">
             <select
               value={seriesMode}
               onChange={(e) => {
@@ -678,65 +556,57 @@ export default function AdminPage() {
                   setCustomSeriesTitle("");
                 }
               }}
-              className="min-w-36 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-gray-900 outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-              aria-label="所属分类"
+              className="min-w-36 rounded-md border border-border bg-card px-2 py-1.5 text-foreground outline-none focus:border-accent text-xs"
+              aria-label="所属系列"
             >
-              <option value="" className="bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100">
-                不加入分类
-              </option>
-              {seriesDefinitions.map((series) => (
-                <option
-                  key={series.slug}
-                  value={series.slug}
-                  className="bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100"
-                >
-                  {series.title}
+              <option value="">不加入系列</option>
+              {seriesDefinitions.map((s) => (
+                <option key={s.slug} value={s.slug}>
+                  {s.title}
                 </option>
               ))}
-              <option
-                value={CUSTOM_SERIES_VALUE}
-                className="bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100"
-              >
-                新建分类...
-              </option>
+              <option value={CUSTOM_SERIES_VALUE}>新建系列...</option>
             </select>
             {seriesMode === CUSTOM_SERIES_VALUE && (
               <input
                 type="text"
-                placeholder="新分类名称"
+                placeholder="新系列名称"
                 value={customSeriesTitle}
                 onChange={(e) => setCustomSeriesTitle(e.target.value)}
-                className="min-w-36 bg-transparent outline-none placeholder-gray-300 dark:placeholder-gray-600"
+                className="min-w-36 bg-transparent outline-none placeholder-muted text-foreground text-xs"
               />
             )}
-            <input
-              type="text"
-              placeholder="标签（逗号分隔）"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              className="min-w-48 flex-1 bg-transparent outline-none placeholder-gray-300 dark:placeholder-gray-600"
-            />
+            <div className="flex-1 min-w-48">
+              <TagInput
+                value={tags}
+                onChange={setTags}
+                placeholder="标签（回车添加）"
+              />
+            </div>
             <input
               type="text"
               placeholder="文章简介（可选）"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="min-w-56 flex-1 bg-transparent outline-none placeholder-gray-300 dark:placeholder-gray-600"
+              className="min-w-56 flex-1 bg-transparent outline-none placeholder-muted text-foreground text-xs"
             />
             <button
               onClick={() => setIsPublic(!isPublic)}
-              className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+              className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
                 isPublic
-                  ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                  ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+                  : "bg-muted/10 text-muted"
               }`}
             >
               {isPublic ? "公开" : "私密"}
             </button>
           </div>
 
-          {/* Markdown 编辑器 */}
-          <div className="flex-1 overflow-hidden" data-color-mode="light">
+          {/* Markdown editor */}
+          <div
+            className="flex-1 overflow-hidden"
+            data-color-mode={darkEditor ? "dark" : "light"}
+          >
             <MDEditor
               value={content}
               onChange={(val: string) => setContent(val || "")}

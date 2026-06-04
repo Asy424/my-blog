@@ -9,8 +9,8 @@ export const metadata = {
 export default function AboutPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-12">
-      <h1 className="text-3xl font-bold tracking-tight">关于</h1>
-      <div className="mt-8 prose">
+      <h1 className="font-display text-3xl font-normal tracking-tight animate-fade-in-up">关于</h1>
+      <div className="mt-8 prose animate-fade-in-up animate-delay-1">
         <p>
           你好！欢迎来到我的个人博客。这里是我记录技术探索、分享编程心得、沉淀思考收获的地方。
         </p>

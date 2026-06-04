@@ -22,16 +22,18 @@ export default function TagsPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-12">
-      <h1 className="text-3xl font-bold tracking-tight">标签</h1>
-      <p className="mt-2 text-gray-600 dark:text-gray-400">
-        共 {tags.length} 个标签
-      </p>
+      <header className="animate-fade-in-up">
+        <h1 className="font-display text-3xl font-normal tracking-tight text-foreground">标签</h1>
+        <p className="mt-2 text-muted">
+          共 {tags.length} 个标签
+        </p>
+      </header>
       {tags.length === 0 ? (
-        <div className="text-center py-16 text-gray-500 dark:text-gray-400">
+        <div className="text-center py-16 text-muted">
           还没有标签
         </div>
       ) : (
-        <div className="mt-8 flex flex-wrap gap-3">
+        <div className="mt-8 flex flex-wrap gap-3 animate-fade-in-up animate-delay-2">
           {tags.map((tag) => (
             <TagBadge key={tag} tag={tag} count={tagCounts[tag]} />
           ))}

@@ -14,6 +14,17 @@ export interface PostData {
   series?: string;
   seriesTitle?: string;
   content?: string;
+  readingTime?: number;
+}
+
+/** 估算阅读时间（分钟）。中文约 400 字/分钟，代码和英文较慢 */
+function estimateReadingTime(text: string): number {
+  const stripped = text.replace(/```[\s\S]*?```/g, (m) => " ".repeat(m.length));
+  const clean = stripped.replace(/[#*_\[\]()>~`\-|{}!]/g, "");
+  const cjk = (clean.match(/[一-鿿㐀-䶿]/g) || []).length;
+  const latin = (clean.match(/[a-zA-Z]+/g) || []).length;
+  const minutes = cjk / 400 + latin / 200;
+  return Math.max(1, Math.ceil(minutes));
 }
 
 export function getSortedPostsData(includePrivate = false): PostData[] {
@@ -35,6 +46,7 @@ export function getSortedPostsData(includePrivate = false): PostData[] {
         public: matterResult.data.public !== false,
         series: matterResult.data.series,
         seriesTitle: matterResult.data.seriesTitle,
+        readingTime: estimateReadingTime(matterResult.content),
       };
     });
 
@@ -66,6 +78,7 @@ export function getPostBySlug(slug: string): PostData | null {
       series: matterResult.data.series,
       seriesTitle: matterResult.data.seriesTitle,
       content: matterResult.content,
+      readingTime: estimateReadingTime(matterResult.content),
     };
   } catch {
     return null;
@@ -75,4 +88,17 @@ export function getPostBySlug(slug: string): PostData | null {
 export function getPostsByTag(tag: string): PostData[] {
   const posts = getSortedPostsData();
   return posts.filter((post) => post.tags.includes(tag));
+}
+
+export function getPostNeighbors(slug: string): {
+  prev: PostData | null;
+  next: PostData | null;
+} {
+  const posts = getSortedPostsData();
+  const index = posts.findIndex((p) => p.slug === slug);
+  if (index === -1) return { prev: null, next: null };
+  return {
+    prev: index < posts.length - 1 ? posts[index + 1] : null,
+    next: index > 0 ? posts[index - 1] : null,
+  };
 }

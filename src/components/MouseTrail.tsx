@@ -4,7 +4,11 @@ import { useEffect } from "react";
 
 export default function MouseTrail() {
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    // 禁用：减少动效偏好 或 触摸设备
+    if (
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      window.matchMedia("(pointer: coarse)").matches
+    ) {
       return;
     }
 
@@ -19,39 +23,57 @@ export default function MouseTrail() {
     let mouseY = -100;
     const dots: { x: number; y: number; alpha: number; hue: number }[] = [];
     let hue = 0;
+    let frameId = 0;
+    let idleTimer = 0;
+    let running = false;
 
     function resize() {
       w = canvas.width = window.innerWidth;
       h = canvas.height = window.innerHeight;
     }
-    window.addEventListener("resize", resize);
 
     function handleMouseMove(e: MouseEvent) {
       mouseX = e.clientX;
       mouseY = e.clientY;
+      if (!running) {
+        running = true;
+        idleTimer = 0;
+        frameId = requestAnimationFrame(animate);
+      }
     }
-    window.addEventListener("mousemove", handleMouseMove);
 
-    let frameId = 0;
     function animate() {
       hue = (hue + 15) % 360;
       dots.push({ x: mouseX, y: mouseY, alpha: 0.6, hue });
       if (dots.length > 15) dots.shift();
 
       ctx.clearRect(0, 0, w, h);
+      let hasVisible = false;
       for (let i = 0; i < dots.length; i++) {
         const d = dots[i];
         d.alpha -= 0.04;
         if (d.alpha <= 0) continue;
+        hasVisible = true;
         const size = (i / dots.length) * 6 + 2;
         ctx.beginPath();
         ctx.arc(d.x, d.y, size, 0, Math.PI * 2);
-        ctx.fillStyle = `hsla(${d.hue}, 100%, 60%, ${d.alpha})`;
+        ctx.fillStyle = `hsla(${d.hue}, 80%, 55%, ${d.alpha})`;
         ctx.fill();
+      }
+
+      idleTimer++;
+      // 鼠标静止约 500ms 后停止动画
+      if (idleTimer > 30 && !hasVisible) {
+        running = false;
+        dots.length = 0;
+        ctx.clearRect(0, 0, w, h);
+        return;
       }
       frameId = requestAnimationFrame(animate);
     }
-    frameId = requestAnimationFrame(animate);
+
+    window.addEventListener("resize", resize);
+    window.addEventListener("mousemove", handleMouseMove);
 
     return () => {
       cancelAnimationFrame(frameId);

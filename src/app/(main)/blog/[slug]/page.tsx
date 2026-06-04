@@ -5,10 +5,13 @@ import remarkRehype from "remark-rehype";
 import rehypeStringify from "rehype-stringify";
 import rehypeShiki from "@shikijs/rehype";
 import rehypeSlug from "rehype-slug";
-import { getPostBySlug, getSortedPostsData } from "@/lib/posts";
+import { getPostBySlug, getSortedPostsData, getPostNeighbors } from "@/lib/posts";
 import TagBadge from "@/components/TagBadge";
 import CodeBlock from "@/components/CodeBlock";
 import ImageLightbox from "@/components/ImageLightbox";
+import ReadingProgress from "@/components/ReadingProgress";
+import TableOfContents from "@/components/TableOfContents";
+import PostNav from "@/components/PostNav";
 import { siteConfig, withBasePath } from "@/site.config";
 
 interface BlogPostPageProps {
@@ -79,6 +82,42 @@ function collectTocHeadings(headings: TocHeading[]) {
   };
 }
 
+/** 给代码块添加语言标签 */
+function rehypeCodeLanguage() {
+  return (tree: RehypeNode) => {
+    function visit(node: RehypeNode) {
+      if (
+        node.type === "element" &&
+        node.tagName === "pre" &&
+        node.children?.[0]?.tagName === "code"
+      ) {
+        const codeNode = node.children[0];
+        const classes = (codeNode.properties?.className as string[]) || [];
+        const langClass = classes.find((c: string) => c.startsWith("language-"));
+        if (langClass) {
+          const lang = langClass.replace("language-", "");
+          node.properties = { ...node.properties, "data-language": lang };
+        }
+      }
+      node.children?.forEach(visit);
+    }
+    visit(tree);
+  };
+}
+
+/** 图片懒加载 */
+function rehypeLazyImages() {
+  return (tree: RehypeNode) => {
+    function visit(node: RehypeNode) {
+      if (node.type === "element" && node.tagName === "img") {
+        node.properties = { ...node.properties, loading: "lazy", decoding: "async" };
+      }
+      node.children?.forEach(visit);
+    }
+    visit(tree);
+  };
+}
+
 export async function generateMetadata({ params }: BlogPostPageProps) {
   const { slug } = await params;
   const post = getPostBySlug(slug);
@@ -119,6 +158,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
   const headings: TocHeading[] = [];
   const blogBasePath = withBasePath("/blog");
+  const neighbors = getPostNeighbors(slug);
   const processedContent = await remark()
     .use(remarkGfm)
     .use(remarkRehype)
@@ -128,18 +168,27 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     .use(rehypeShiki, {
       theme: "one-dark-pro",
     })
+    .use(rehypeCodeLanguage)
+    .use(rehypeLazyImages)
     .use(rehypeStringify)
     .process(post.content || "");
   const contentHtml = processedContent.toString();
 
   return (
     <article className="max-w-6xl mx-auto px-4 py-12">
+      <ReadingProgress />
       <CodeBlock />
       <ImageLightbox />
-      <header className="mb-10">
-        <h1 className="text-3xl font-bold tracking-tight">{post.title}</h1>
-        <div className="mt-4 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+      <header className="mb-10 animate-fade-in-up">
+        <h1 className="font-display text-3xl font-normal tracking-tight leading-tight sm:text-4xl">{post.title}</h1>
+        <div className="mt-4 flex items-center gap-3 text-sm text-muted">
           <time dateTime={post.date}>{post.date}</time>
+          {post.readingTime && (
+            <>
+              <span className="text-border">·</span>
+              <span>约 {post.readingTime} 分钟阅读</span>
+            </>
+          )}
         </div>
         {post.tags.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
@@ -156,29 +205,11 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         />
         {headings.length > 0 && (
           <aside className="hidden lg:block">
-            <nav className="sticky top-24 border-l border-gray-200 dark:border-gray-800 pl-5 text-sm">
-              <div className="mb-3 font-medium text-gray-900 dark:text-gray-100">
-                目录
-              </div>
-              <ol className="space-y-2">
-                {headings.map((heading) => (
-                  <li
-                    key={heading.id}
-                    className={heading.level === 3 ? "pl-4" : undefined}
-                  >
-                    <a
-                      href={`#${heading.id}`}
-                      className="block text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
-                    >
-                      {heading.text}
-                    </a>
-                  </li>
-                ))}
-              </ol>
-            </nav>
+            <TableOfContents headings={headings} />
           </aside>
         )}
       </div>
+      <PostNav prev={neighbors.prev} next={neighbors.next} />
     </article>
   );
 }

@@ -51,29 +51,31 @@ export default async function SeriesDetailPage({ params }: SeriesDetailPageProps
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-12">
-      <header className="border-b border-gray-200/80 pb-8 dark:border-slate-800/80">
-        <p className="text-sm font-medium text-blue-600 dark:text-blue-300">
+      <header className="border-b border-border pb-8 animate-fade-in-up">
+        <p className="text-sm font-medium text-accent tracking-wide">
           系列
         </p>
-        <h1 className="mt-3 text-3xl font-bold tracking-tight text-gray-950 dark:text-gray-50">
+        <h1 className="mt-3 font-display text-3xl font-normal tracking-tight text-foreground">
           {series.title}
         </h1>
-        <p className="mt-4 max-w-3xl text-base leading-8 text-gray-600 dark:text-gray-400">
+        <p className="mt-4 max-w-3xl text-base leading-8 text-muted">
           {series.description}
         </p>
-        <div className="mt-5 text-sm text-gray-500 dark:text-gray-400">
+        <div className="mt-5 text-sm text-muted">
           共 {posts.length} 篇公开文章
         </div>
       </header>
 
       {posts.length === 0 ? (
-        <div className="mt-10 rounded-lg border border-dashed border-gray-300 py-16 text-center text-gray-500 dark:border-slate-700 dark:text-gray-400">
+        <div className="mt-10 rounded-lg border border-dashed border-border py-16 text-center text-muted">
           这个系列暂时没有公开文章。
         </div>
       ) : (
         <div className="mt-8 space-y-4">
-          {posts.map((post) => (
-            <PostCard key={post.slug} post={post} />
+          {posts.map((post, i) => (
+            <div key={post.slug} className={`animate-fade-in-up animate-delay-${Math.min(i + 1, 5)}`}>
+              <PostCard post={post} />
+            </div>
           ))}
         </div>
       )}
