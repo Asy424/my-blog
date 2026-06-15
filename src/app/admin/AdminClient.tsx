@@ -97,16 +97,18 @@ function buildFrontmatter(
   description: string,
   isPublic: boolean,
   seriesSlug: string,
-  seriesTitle: string
+  seriesTitle: string,
+  date?: string
 ) {
-  const now = new Date().toISOString().split("T")[0];
+  // 编辑已有文章时保留原发布日期；新建文章才用今天
+  const dateStr = date || new Date().toISOString().split("T")[0];
   const clean = tags.replace(/[\[\]"']+/g, "");
   const tagList = clean.split(/[,\s]+/).filter(Boolean);
   const tagsStr = tagList.map((t) => `"${t}"`).join(", ");
   const lines = [
     "---",
     `title: "${title}"`,
-    `date: "${now}"`,
+    `date: "${dateStr}"`,
     `tags: [${tagsStr}]`,
     seriesSlug ? `series: "${seriesSlug}"` : "",
     seriesTitle ? `seriesTitle: "${seriesTitle}"` : "",
@@ -117,14 +119,24 @@ function buildFrontmatter(
   return lines.join("\n") + "\n\n";
 }
 
+/**
+ * 从标题生成 slug：提取其中的英文/数字片段。
+ * 纯中文标题返回空字符串，由调用方引导手动输入或用时间戳兜底。
+ */
 function slugify(title: string) {
   const cleaned = title
-    .replace(/[^a-zA-Z0-9\s-]/g, "")
+    .replace(/[^a-zA-Z0-9\s-]/g, " ")
     .trim()
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
-    .toLowerCase();
-  return cleaned || `post-${Date.now().toString(36)}`;
+    .toLowerCase()
+    .replace(/^-|-$/g, "");
+  return cleaned;
+}
+
+/** 纯中文/无英文标题的时间戳兜底 slug */
+function fallbackSlug() {
+  return `post-${Date.now().toString(36)}`;
 }
 
 export default function AdminPage() {
@@ -146,6 +158,7 @@ export default function AdminPage() {
   const [content, setContent] = useState("");
   const [isPublic, setIsPublic] = useState(true);
   const [editingFile, setEditingFile] = useState<GitHubFile | null>(null);
+  const [originalDate, setOriginalDate] = useState<string>("");
 
   const [tokenInput, setTokenInput] = useState("");
   const [darkEditor, setDarkEditor] = useState(false);
@@ -170,30 +183,31 @@ export default function AdminPage() {
     };
   }, []);
 
-  // load posts
+  // load posts — 并发拉取所有文章内容
   const loadPosts = useCallback(async () => {
     setLoading(true);
     try {
       const data = await listPosts(token);
       setPosts(data);
-      // parse metadata for sidebar display
       const titles: Record<string, string> = {};
       const meta: Record<string, PostMeta> = {};
-      for (const file of data) {
-        try {
-          const { content: raw } = await getPostContent(token, file.path);
-          const { data: fm } = parseFrontmatter(raw);
-          titles[file.path] = fm.title || file.name.replace(".md", "");
-          meta[file.path] = {
-            title: fm.title || "",
-            date: fm.date || "",
-            isPublic: fm.public !== "false",
-            series: fm.series || "",
-          };
-        } catch {
-          titles[file.path] = file.name.replace(".md", "");
-        }
-      }
+      await Promise.all(
+        data.map(async (file) => {
+          try {
+            const { content: raw } = await getPostContent(token, file.path);
+            const { data: fm } = parseFrontmatter(raw);
+            titles[file.path] = fm.title || file.name.replace(".md", "");
+            meta[file.path] = {
+              title: fm.title || "",
+              date: fm.date || "",
+              isPublic: fm.public !== "false",
+              series: fm.series || "",
+            };
+          } catch {
+            titles[file.path] = file.name.replace(".md", "");
+          }
+        })
+      );
       setPostTitles((prev) => ({ ...prev, ...titles }));
       setPostMeta((prev) => ({ ...prev, ...meta }));
     } catch (e: unknown) {
@@ -212,7 +226,16 @@ export default function AdminPage() {
 
   // draft management
   const editorRef = useRef({ title, tags, description, seriesMode, customSeriesTitle, content });
-  editorRef.current = { title, tags, description, seriesMode, customSeriesTitle, content };
+  const hasUnsavedChanges = useRef(false);
+  const publishRef = useRef<() => void>(() => {});
+
+  // 在 effect 中同步 ref（不在 render 期间更新 ref，符合 react-hooks/refs 规则）
+  useEffect(() => {
+    editorRef.current = { title, tags, description, seriesMode, customSeriesTitle, content };
+    hasUnsavedChanges.current =
+      title !== "" || content !== "" || tags !== "" || description !== "";
+    publishRef.current = handlePublish;
+  });
 
   useEffect(() => {
     const DRAFT_KEY = "admin-draft";
@@ -245,11 +268,6 @@ export default function AdminPage() {
     return () => clearInterval(timer);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Track unsaved changes via ref so the unload listener can stay stable.
-  const hasUnsavedChanges = useRef(false);
-  hasUnsavedChanges.current =
-    title !== "" || content !== "" || tags !== "" || description !== "";
-
   // beforeunload warning
   useEffect(() => {
     function handler(e: BeforeUnloadEvent) {
@@ -261,17 +279,17 @@ export default function AdminPage() {
     return () => window.removeEventListener("beforeunload", handler);
   }, []);
 
-  // Ctrl+S shortcut
+  // Ctrl+S shortcut — 监听只注册一次，通过 ref 调用最新 handlePublish
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
-        handlePublish();
+        publishRef.current();
       }
     }
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }); // intentionally no deps — always has latest handlePublish
+  }, []);
 
   // show upload errors as toasts
   useEffect(() => {
@@ -287,6 +305,7 @@ export default function AdminPage() {
     setContent("");
     setIsPublic(true);
     setEditingFile(null);
+    setOriginalDate("");
   }
 
   async function handleSelectPost(file: GitHubFile) {
@@ -314,6 +333,7 @@ export default function AdminPage() {
       }
       setIsPublic(data.public !== "false");
       setContent(body.trimStart());
+      setOriginalDate(data.date || "");
       setEditingFile({ ...file, sha });
 
       const t = data.title || file.name.replace(".md", "");
@@ -359,12 +379,27 @@ export default function AdminPage() {
       description.trim(),
       isPublic,
       selectedSeriesSlug,
-      selectedSeriesTitle
+      selectedSeriesTitle,
+      originalDate || undefined
     );
     const fullContent = frontmatter + content.trimStart();
 
     try {
-      const path = editingFile ? editingFile.path : `posts/${slugify(title)}.md`;
+      let path: string;
+      if (editingFile) {
+        // 编辑已有文章：沿用原路径（不改 slug，避免断链）
+        path = editingFile.path;
+      } else {
+        // 新建文章：英文提取 → 手动输入 → 时间戳兜底
+        let slug = slugify(title);
+        if (!slug) {
+          const input = window.prompt(
+            "标题中没有可用的英文片段，请输入一个简短的英文 slug（如 stream-basics）：\n留空则使用系统自动生成的名称。"
+          );
+          slug = (input || "").trim().replace(/[^a-zA-Z0-9-]/g, "-").replace(/-+/g, "-").toLowerCase();
+        }
+        path = `posts/${slug || fallbackSlug()}.md`;
+      }
       await savePost(token, path, fullContent, editingFile?.sha);
       addToast("success", editingFile ? "文章已更新" : "文章已发布");
       localStorage.removeItem("admin-draft");
@@ -433,15 +468,31 @@ export default function AdminPage() {
   // ── Login screen ──
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="bg-card rounded-xl shadow-sm border border-border p-8 w-full max-w-md animate-fade-in-up">
-          <h1 className="text-2xl font-display font-normal mb-2 text-foreground">管理员登录</h1>
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div
+          className="relative bg-card rounded-xl border border-border p-8 w-full max-w-md animate-fade-in-up"
+          style={{ boxShadow: "var(--shadow-lift)" }}
+        >
+          <span
+            aria-hidden
+            className="absolute inset-x-0 top-0 h-1 rounded-t-xl"
+            style={{
+              background: "linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 50%, transparent))",
+            }}
+          />
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-2xl" aria-hidden>✎</span>
+            <h1 className="text-2xl font-display font-normal text-foreground">管理员登录</h1>
+          </div>
           <p className="text-sm text-muted mb-6">
             输入 GitHub Personal Access Token 以访问编辑器
           </p>
-          <p className="text-xs text-amber-600 dark:text-amber-400 mb-4 leading-relaxed">
+          <div
+            className="text-xs mb-4 leading-relaxed rounded-lg p-3"
+            style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+          >
             建议使用只授予当前仓库 contents 权限的最小权限 Token；Token 仅保存在当前浏览器会话中。
-          </p>
+          </div>
           <input
             type="password"
             placeholder="粘贴你的 GitHub Token..."
@@ -451,7 +502,7 @@ export default function AdminPage() {
             className="w-full px-4 py-2.5 rounded-lg border border-border bg-transparent outline-none focus:border-accent transition-colors text-foreground placeholder-muted mb-4"
           />
           {authError && (
-            <p className="text-red-500 text-sm mb-4">{authError}</p>
+            <p className="text-sm mb-4" style={{ color: "var(--accent)" }}>{authError}</p>
           )}
           <button
             onClick={() => login(tokenInput)}
@@ -493,6 +544,10 @@ export default function AdminPage() {
           {editingFile && (
             <button
               onClick={() => {
+                if (!isPublic) {
+                  addToast("info", "私密文章不会生成公开页面，先切换为公开并保存后再预览");
+                  return;
+                }
                 const slug = editingFile.path.replace(/^posts\//, "").replace(/\.md$/, "");
                 window.open(withBasePath(`/blog/${slug}`), "_blank");
               }}
@@ -553,60 +608,77 @@ export default function AdminPage() {
             className="w-full px-6 py-4 text-2xl font-display font-normal bg-transparent border-b border-border outline-none placeholder-muted/50 text-foreground"
           />
 
-          {/* Meta bar */}
-          <div className="flex flex-wrap items-center gap-3 px-6 py-2 border-b border-border text-sm">
-            <select
-              value={seriesMode}
-              onChange={(e) => {
-                setSeriesMode(e.target.value);
-                if (e.target.value !== CUSTOM_SERIES_VALUE) {
-                  setCustomSeriesTitle("");
+          {/* Meta bar —— 分两层：分类设置 / 内容元数据 */}
+          <div className="px-6 py-3 border-b border-border space-y-2.5 text-sm">
+            {/* 第一行：系列 + 公开开关 */}
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-xs text-muted">
+                系列
+                <select
+                  value={seriesMode}
+                  onChange={(e) => {
+                    setSeriesMode(e.target.value);
+                    if (e.target.value !== CUSTOM_SERIES_VALUE) {
+                      setCustomSeriesTitle("");
+                    }
+                  }}
+                  className="min-w-36 rounded-md border border-border bg-card px-2 py-1.5 text-foreground outline-none focus:border-accent text-xs"
+                  aria-label="所属系列"
+                >
+                  <option value="">不加入系列</option>
+                  {seriesDefinitions.map((s) => (
+                    <option key={s.slug} value={s.slug}>
+                      {s.title}
+                    </option>
+                  ))}
+                  <option value={CUSTOM_SERIES_VALUE}>新建系列...</option>
+                </select>
+              </label>
+              {seriesMode === CUSTOM_SERIES_VALUE && (
+                <input
+                  type="text"
+                  placeholder="新系列名称"
+                  value={customSeriesTitle}
+                  onChange={(e) => setCustomSeriesTitle(e.target.value)}
+                  className="min-w-36 rounded-md border border-border bg-card px-2 py-1.5 outline-none placeholder-muted text-foreground text-xs focus:border-accent"
+                />
+              )}
+              <button
+                onClick={() => setIsPublic(!isPublic)}
+                className="shrink-0 ml-auto px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer border"
+                style={
+                  isPublic
+                    ? { background: "var(--accent-soft)", color: "var(--accent)", borderColor: "transparent" }
+                    : { background: "transparent", color: "var(--muted)", borderColor: "var(--border)" }
                 }
-              }}
-              className="min-w-36 rounded-md border border-border bg-card px-2 py-1.5 text-foreground outline-none focus:border-accent text-xs"
-              aria-label="所属系列"
-            >
-              <option value="">不加入系列</option>
-              {seriesDefinitions.map((s) => (
-                <option key={s.slug} value={s.slug}>
-                  {s.title}
-                </option>
-              ))}
-              <option value={CUSTOM_SERIES_VALUE}>新建系列...</option>
-            </select>
-            {seriesMode === CUSTOM_SERIES_VALUE && (
-              <input
-                type="text"
-                placeholder="新系列名称"
-                value={customSeriesTitle}
-                onChange={(e) => setCustomSeriesTitle(e.target.value)}
-                className="min-w-36 bg-transparent outline-none placeholder-muted text-foreground text-xs"
-              />
-            )}
-            <div className="flex-1 min-w-48">
-              <TagInput
-                value={tags}
-                onChange={setTags}
-                placeholder="标签（回车添加）"
-              />
+              >
+                {isPublic ? "● 公开" : "○ 私密"}
+              </button>
             </div>
-            <input
-              type="text"
-              placeholder="文章简介（可选）"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="min-w-56 flex-1 bg-transparent outline-none placeholder-muted text-foreground text-xs"
-            />
-            <button
-              onClick={() => setIsPublic(!isPublic)}
-              className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-                isPublic
-                  ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
-                  : "bg-muted/10 text-muted"
-              }`}
-            >
-              {isPublic ? "公开" : "私密"}
-            </button>
+
+            {/* 第二行：标签 + 简介 */}
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-xs text-muted shrink-0">
+                标签
+                <div className="min-w-48 flex-1 rounded-md border border-border bg-card px-2.5 py-1 focus-within:border-accent">
+                  <TagInput
+                    value={tags}
+                    onChange={setTags}
+                    placeholder="回车添加"
+                  />
+                </div>
+              </label>
+              <label className="flex items-center gap-2 text-xs text-muted flex-1 min-w-56">
+                简介
+                <input
+                  type="text"
+                  placeholder="一句话摘要（可选）"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="flex-1 min-w-0 rounded-md border border-border bg-card px-2.5 py-1.5 outline-none placeholder-muted text-foreground text-xs focus:border-accent"
+                />
+              </label>
+            </div>
           </div>
 
           {/* Markdown editor */}

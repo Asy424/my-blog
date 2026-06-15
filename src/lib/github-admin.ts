@@ -114,21 +114,9 @@ export async function savePost(
     }
   );
   if (!res.ok) {
-    // SHA 冲突，重新获取最新 SHA 再试一次
+    // SHA 冲突：该文件在编辑期间被改动过，提示用户而非静默覆盖
     if (res.status === 409) {
-      const getRes = await fetch(
-        `${API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${path}`,
-        { headers: headers(token) }
-      );
-      if (getRes.ok) {
-        const data = (await getRes.json()) as GitHubContentFile;
-        body.sha = data.sha;
-        const retryRes = await fetch(
-          `${API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${path}`,
-          { method: "PUT", headers: headers(token), body: JSON.stringify(body) }
-        );
-        if (retryRes.ok) return;
-      }
+      throw new Error("文件已被其他方式修改，请刷新文章列表后重新编辑，避免覆盖他人改动");
     }
     const err = (await res.json()) as GitHubError;
     throw new Error(err.message || "保存失败: " + res.status);
@@ -154,7 +142,11 @@ export async function deletePost(
   }
 }
 
-async function compressImage(file: File, maxWidth = 1200): Promise<Blob> {
+/**
+ * 压缩图片：PNG 保持 PNG（保留透明通道），其他格式转 WebP（质量 0.82）。
+ * 返回压缩后的 Blob 及其 MIME 类型，供上传时确定文件扩展名。
+ */
+async function compressImage(file: File, maxWidth = 1200): Promise<{ blob: Blob; mime: string }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -165,13 +157,18 @@ async function compressImage(file: File, maxWidth = 1200): Promise<Blob> {
       canvas.height = h;
       const ctx = canvas.getContext("2d")!;
       ctx.drawImage(img, 0, 0, w, h);
+
+      const isPNG = file.type === "image/png";
+      const outputType = isPNG ? "image/png" : "image/webp";
+      const quality = isPNG ? undefined : 0.82;
+
       canvas.toBlob(
         (blob) => {
-          if (blob) resolve(blob);
-          else reject(new Error("压缩失败"));
+          if (blob) resolve({ blob, mime: outputType });
+          else reject(new Error("图片压缩失败"));
         },
-        "image/jpeg",
-        0.75
+        outputType,
+        quality
       );
     };
     img.onerror = () => reject(new Error("图片加载失败"));
@@ -183,7 +180,7 @@ export async function uploadImage(
   token: string,
   file: File
 ): Promise<{ url: string; path: string }> {
-  const compressed = await compressImage(file);
+  const { blob: compressed, mime } = await compressImage(file);
   const buffer = await compressed.arrayBuffer();
   const bytes = new Uint8Array(buffer);
   let binary = "";
@@ -191,10 +188,11 @@ export async function uploadImage(
     binary += String.fromCharCode(bytes[i]);
   }
 
+  const ext = mime === "image/png" ? "png" : "webp";
   const now = new Date();
   const dir = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}`;
   const baseName = file.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9._-]/g, "_");
-  const name = `${Date.now()}-${baseName}.jpg`;
+  const name = `${Date.now()}-${baseName}.${ext}`;
   const path = `public/images/${dir}/${name}`;
 
   const res = await fetch(
