@@ -14,7 +14,8 @@ export default function PostNav({ prev, next }: PostNavProps) {
       {prev ? (
         <Link
           href={`/blog/${prev.slug}`}
-          className="group flex flex-col gap-1 rounded-lg border border-border bg-card p-4 transition-all hover:border-accent hover:shadow-sm"
+          className="group flex flex-col gap-1 rounded-xl border border-border bg-card p-4 transition-all hover:border-accent hover:-translate-y-0.5"
+          style={{ boxShadow: "var(--shadow-soft)" }}
         >
           <span className="text-xs font-medium text-muted uppercase tracking-wide">
             &larr; 上一篇
@@ -29,7 +30,8 @@ export default function PostNav({ prev, next }: PostNavProps) {
       {next ? (
         <Link
           href={`/blog/${next.slug}`}
-          className="group flex flex-col gap-1 items-end text-right rounded-lg border border-border bg-card p-4 transition-all hover:border-accent hover:shadow-sm"
+          className="group flex flex-col gap-1 items-end text-right rounded-xl border border-border bg-card p-4 transition-all hover:border-accent hover:-translate-y-0.5"
+          style={{ boxShadow: "var(--shadow-soft)" }}
         >
           <span className="text-xs font-medium text-muted uppercase tracking-wide">
             下一篇 &rarr;

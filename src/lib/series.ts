@@ -53,6 +53,32 @@ export function getPostsBySeries(series: Pick<SeriesDefinition, "slug">): PostDa
   return getSeriesBySlug(series.slug)?.posts ?? [];
 }
 
+/**
+ * 反查某篇文章所属的系列定义（优先匹配显式声明，再匹配 slugs/tags 规则）。
+ * 一篇文章最多归入第一个匹配的系列，用于卡片色条、文章归属标签等。
+ */
+export function getSeriesForPost(post: PostData): SeriesDefinition | undefined {
+  const explicit = normalizePostSeries(post);
+  if (explicit) {
+    const found = seriesDefinitions.find((s) => s.slug === explicit.slug);
+    if (found) return found;
+  }
+  return seriesDefinitions.find((series) => postMatchesDefinition(post, series));
+}
+
+/** 计算某篇文章在其系列中的位置（1-based）和总数；不在系列中返回 null */
+export function getPostSeriesPosition(
+  post: PostData
+): { index: number; total: number; series: SeriesDefinition } | null {
+  const series = getSeriesForPost(post);
+  if (!series) return null;
+  const summary = getSeriesBySlug(series.slug);
+  const posts = summary?.posts ?? [];
+  const index = posts.findIndex((p) => p.slug === post.slug);
+  if (index === -1) return null;
+  return { index: index + 1, total: posts.length, series };
+}
+
 export function getSeriesSummaries(): SeriesSummary[] {
   const posts = getSortedPostsData();
   const summaries = new Map<string, SeriesSummary>();

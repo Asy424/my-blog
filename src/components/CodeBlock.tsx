@@ -14,20 +14,6 @@ export default function CodeBlock() {
       const button = document.createElement("button");
       button.className = "copy-button";
       button.textContent = "复制";
-      button.style.cssText = `
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        padding: 4px 12px;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 4px;
-        color: #e5e7eb;
-        font-size: 12px;
-        cursor: pointer;
-        opacity: 0;
-        transition: opacity 0.2s;
-      `;
 
       const showButton = () => {
         button.style.opacity = "1";

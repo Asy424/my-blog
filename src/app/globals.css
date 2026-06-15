@@ -25,20 +25,46 @@
   --header-bg: rgba(250, 249, 247, 0.88);
   --code-bg: #1e1e2e;
   --code-header: #2d2d44;
+
+  /* 多层暖色柔和阴影 —— 替代 Tailwind 默认 shadow */
+  --shadow-soft: 0 1px 2px rgba(74, 55, 30, 0.04), 0 4px 12px rgba(74, 55, 30, 0.06);
+  --shadow-lift: 0 2px 4px rgba(74, 55, 30, 0.05), 0 12px 28px rgba(74, 55, 30, 0.1);
+
+  /* 系列色（暖色协调色板，亮色） */
+  --s-codex: #3b6ea5;
+  --s-codex-soft: #e6eef6;
+  --s-windows: #2f855a;
+  --s-windows-soft: #e4f0e9;
+  --s-java: #7c5bc9;
+  --s-java-soft: #efeaf8;
+  --s-blog: #b7791f;
+  --s-blog-soft: #f6efe1;
 }
 
 .dark {
   --background: #0d0f14;
   --foreground: #e2e0db;
   --muted: #8a8a9e;
-  --accent: #7dd3a0;
-  --accent-soft: #1a2e23;
-  --border: #252836;
+  --accent: #6fbf8a;
+  --accent-soft: #16291f;
+  --border: #232634;
   --card: #141620;
   --card-hover: #1a1d2e;
   --header-bg: rgba(13, 15, 20, 0.88);
   --code-bg: #11131c;
   --code-header: #1a1d2e;
+
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.35), 0 12px 28px rgba(0, 0, 0, 0.5);
+
+  --s-codex: #6fa3d8;
+  --s-codex-soft: #1a2632;
+  --s-windows: #5fae7e;
+  --s-windows-soft: #18291f;
+  --s-java: #a98ee0;
+  --s-java-soft: #241d33;
+  --s-blog: #d4a24a;
+  --s-blog-soft: #2a2113;
 }
 
 body {
@@ -46,7 +72,22 @@ body {
   color: var(--foreground);
   min-height: 100vh;
   font-family: var(--font-sans);
+  /* 纸张质感：暖色径向光晕底 + 极轻噪点纹理 */
+  background-image:
+    radial-gradient(900px circle at 85% -5%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 55%),
+    radial-gradient(700px circle at 5% 105%, color-mix(in srgb, var(--s-codex) 7%, transparent), transparent 50%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  background-attachment: fixed, fixed, fixed;
 }
+
+/* 系列色辅助类（静态，避免 Tailwind purge） */
+.s-codex { --series: var(--s-codex); --series-soft: var(--s-codex-soft); }
+.s-windows { --series: var(--s-windows); --series-soft: var(--s-windows-soft); }
+.s-java { --series: var(--s-java); --series-soft: var(--s-java-soft); }
+.s-blog { --series: var(--s-blog); --series-soft: var(--s-blog-soft); }
+
+.shadow-soft { box-shadow: var(--shadow-soft); }
+.shadow-lift { box-shadow: var(--shadow-lift); }
 
 /* 文章内容样式 */
 .prose {
@@ -138,7 +179,8 @@ body {
   color: var(--muted);
   font-style: italic;
   background: var(--accent-soft);
-  border-radius: 0 0.375rem 0.375rem 0;
+  border-radius: 0 0.5rem 0.5rem 0;
+  box-shadow: var(--shadow-soft);
 }
 
 .dark .prose blockquote {
@@ -151,12 +193,13 @@ body {
   color: #cdd6f4;
   background: var(--code-bg);
   padding: 1.1em 1.25em;
-  border-radius: 0.625rem;
+  border-radius: 0.75rem;
   overflow-x: auto;
   margin: 1.2em 0;
   font-size: 0.875em;
   line-height: 1.6;
   border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
 }
 
 .dark .prose pre {
@@ -193,9 +236,10 @@ body {
 
 .prose img {
   max-width: 100%;
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   margin: 1.5em auto;
   display: block;
+  box-shadow: var(--shadow-soft);
 }
 
 .prose p:has(img) {
@@ -224,6 +268,9 @@ body {
   border-collapse: collapse;
   margin: 1.2em 0;
   font-size: 0.9375rem;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
 }
 
 .prose th,
@@ -252,7 +299,7 @@ body {
   text-transform: uppercase;
   color: #8892b0;
   background: var(--code-header);
-  border-radius: 0.625rem 0.625rem 0 0;
+  border-radius: 0.75rem 0.75rem 0 0;
   border: 1px solid var(--border);
   border-bottom: none;
   font-family: var(--font-mono);
@@ -260,11 +307,11 @@ body {
 
 .code-lang-label + pre {
   margin-top: 0;
-  border-radius: 0 0 0.625rem 0.625rem;
+  border-radius: 0 0 0.75rem 0.75rem;
 }
 
 .prose pre[data-language] {
-  border-radius: 0 0 0.625rem 0.625rem;
+  border-radius: 0 0 0.75rem 0.75rem;
   margin-top: 0;
 }
 
@@ -279,8 +326,24 @@ body {
   text-transform: uppercase;
   color: #8892b0;
   background: var(--code-header);
-  border-radius: 0.625rem 0.625rem 0 0;
+  border-radius: 0.75rem 0.75rem 0 0;
   font-family: var(--font-mono);
+}
+
+/* 代码块复制按钮（CodeBlock 组件注入，用类替代内联样式，与主题协调） */
+.copy-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.375rem;
+  color: #e5e7eb;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s, background 0.2s;
 }
 
 /* 页面入场动画 */
@@ -305,13 +368,35 @@ body {
 .animate-delay-4 { animation-delay: 0.32s; }
 .animate-delay-5 { animation-delay: 0.4s; }
 
+/* 系列卡带横向滚动（隐藏滚动条，保留滚动） */
+.series-rail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(16rem, 20rem);
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 0.5rem;
+  scrollbar-width: thin;
+}
+.series-rail > * {
+  scroll-snap-align: start;
+}
+.series-rail::-webkit-scrollbar {
+  height: 6px;
+}
+.series-rail::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
 /* 阅读进度条 */
 .reading-progress {
   position: fixed;
   top: 0;
   left: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #60a5fa));
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 55%, var(--s-codex)));
   z-index: 100;
   transition: width 0.1s linear;
   border-radius: 0 2px 2px 0;

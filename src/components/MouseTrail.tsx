@@ -21,11 +21,17 @@ export default function MouseTrail() {
     let h = (canvas.height = window.innerHeight);
     let mouseX = -100;
     let mouseY = -100;
-    const dots: { x: number; y: number; alpha: number; hue: number }[] = [];
-    let hue = 0;
+    const dots: { x: number; y: number; alpha: number }[] = [];
     let frameId = 0;
     let idleTimer = 0;
     let running = false;
+
+    // 从主题读取 accent 色，粒子用 accent 暖色调（而非彩虹色）
+    function getAccentColor(): string {
+      const style = getComputedStyle(document.documentElement);
+      return style.getPropertyValue("--accent").trim() || "#2d5a27";
+    }
+    const accentColor = getAccentColor();
 
     function resize() {
       w = canvas.width = window.innerWidth;
@@ -43,8 +49,7 @@ export default function MouseTrail() {
     }
 
     function animate() {
-      hue = (hue + 15) % 360;
-      dots.push({ x: mouseX, y: mouseY, alpha: 0.6, hue });
+      dots.push({ x: mouseX, y: mouseY, alpha: 0.55 });
       if (dots.length > 15) dots.shift();
 
       ctx.clearRect(0, 0, w, h);
@@ -57,8 +62,10 @@ export default function MouseTrail() {
         const size = (i / dots.length) * 6 + 2;
         ctx.beginPath();
         ctx.arc(d.x, d.y, size, 0, Math.PI * 2);
-        ctx.fillStyle = `hsla(${d.hue}, 80%, 55%, ${d.alpha})`;
+        ctx.fillStyle = accentColor;
+        ctx.globalAlpha = d.alpha;
         ctx.fill();
+        ctx.globalAlpha = 1;
       }
 
       idleTimer++;

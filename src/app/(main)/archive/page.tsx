@@ -78,7 +78,8 @@ export default function ArchivePage() {
                   <Link
                     key={post.slug}
                     href={`/blog/${post.slug}`}
-                    className="group flex flex-col gap-2 rounded-lg border border-border bg-card p-4 transition-all duration-300 hover:border-accent hover:shadow-sm hover:-translate-y-0.5 sm:flex-row sm:items-start sm:justify-between"
+                    className="group flex flex-col gap-2 rounded-lg border border-border bg-card p-4 transition-all duration-300 hover:border-accent hover:-translate-y-0.5 sm:flex-row sm:items-start sm:justify-between"
+                    style={{ boxShadow: "var(--shadow-soft)" }}
                   >
                     <div>
                       <h3 className="font-medium text-foreground group-hover:text-accent transition-colors">
