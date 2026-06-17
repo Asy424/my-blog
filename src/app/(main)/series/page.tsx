@@ -1,13 +1,6 @@
 import Link from "next/link";
 import { getSeriesSummaries } from "@/lib/series";
-
-/** 系列色辅助类映射（静态字符串，避免 Tailwind purge） */
-const seriesClass: Record<string, string> = {
-  codex: "s-codex",
-  "windows-setup": "s-windows",
-  "java-functional": "s-java",
-  "blog-building": "s-blog",
-};
+import { getSeriesClassName } from "@/lib/series-config";
 
 export const metadata = {
   title: "系列",
@@ -36,9 +29,10 @@ export default function SeriesPage() {
 
       <div className="mt-10 grid gap-5 md:grid-cols-2">
         {series.map((item, i) => {
-          const cls = seriesClass[item.slug] ?? "";
+          const cls = getSeriesClassName(item);
           return (
             <Link
+              suppressHydrationWarning
               key={item.slug}
               href={`/series/${item.slug}`}
               className={[
@@ -52,16 +46,13 @@ export default function SeriesPage() {
             >
               {/* 系列色渐变 banner */}
               <div
-                className="relative h-20 px-6 py-4"
-                style={{
-                  background:
-                    "linear-gradient(120deg, var(--series-soft), color-mix(in srgb, var(--series) 28%, var(--card)))",
-                }}
+                className="series-banner-soft relative h-20 px-6 py-4"
               >
                 <div className="flex h-full items-end justify-between gap-3">
                   <span
+                    suppressHydrationWarning
                     className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium"
-                    style={{ background: "var(--card)", color: "var(--series)" }}
+                    style={{ backgroundColor: "var(--card)", color: "var(--series)" }}
                   >
                     {item.postCount} 篇文章
                   </span>
@@ -91,9 +82,10 @@ export default function SeriesPage() {
                         className="flex items-center gap-2 text-sm text-muted"
                       >
                         <span
+                          suppressHydrationWarning
                           aria-hidden
                           className="h-1 w-1 shrink-0 rounded-full"
-                          style={{ background: "var(--series)" }}
+                          style={{ backgroundColor: "var(--series)" }}
                         />
                         <span className="truncate">{post.title}</span>
                       </div>

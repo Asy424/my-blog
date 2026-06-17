@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import { siteConfig } from "@/site.config";
 
 const postsDirectory = path.join(process.cwd(), "posts");
 
@@ -8,6 +9,7 @@ export interface PostData {
   slug: string;
   title: string;
   date: string;
+  updated?: string;
   tags: string[];
   description: string;
   public: boolean;
@@ -41,6 +43,7 @@ export function getSortedPostsData(includePrivate = false): PostData[] {
         slug,
         title: matterResult.data.title,
         date: matterResult.data.date,
+        updated: matterResult.data.updated,
         tags: matterResult.data.tags || [],
         description: matterResult.data.description || "",
         public: matterResult.data.public !== false,
@@ -72,6 +75,7 @@ export function getPostBySlug(slug: string): PostData | null {
       slug,
       title: matterResult.data.title,
       date: matterResult.data.date,
+      updated: matterResult.data.updated,
       tags: matterResult.data.tags || [],
       description: matterResult.data.description || "",
       public: matterResult.data.public !== false,
@@ -101,4 +105,45 @@ export function getPostNeighbors(slug: string): {
     prev: index < posts.length - 1 ? posts[index + 1] : null,
     next: index > 0 ? posts[index - 1] : null,
   };
+}
+
+export function getRelatedPosts(post: PostData, limit = 3): PostData[] {
+  const posts = getSortedPostsData().filter((item) => item.slug !== post.slug);
+  const tagSet = new Set(post.tags);
+
+  return posts
+    .map((item) => {
+      const tagScore = item.tags.filter((tag) => tagSet.has(tag)).length;
+      const seriesScore = post.series && item.series === post.series ? 2 : 0;
+      return { post: item, score: tagScore + seriesScore };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return b.post.date.localeCompare(a.post.date);
+    })
+    .slice(0, limit)
+    .map((item) => item.post);
+}
+
+function postLinksToSlug(content: string, slug: string): boolean {
+  const escapedSlug = slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escapedBasePath = siteConfig.basePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const patterns = [
+    new RegExp(`\\]\\(\\./${escapedSlug}\\.md(?:#[^)]+)?\\)`, "i"),
+    new RegExp(`\\]\\(/blog/${escapedSlug}(?:#[^)]+)?\\)`, "i"),
+    new RegExp(`\\]\\(${escapedBasePath}/blog/${escapedSlug}(?:#[^)]+)?\\)`, "i"),
+  ];
+  return patterns.some((pattern) => pattern.test(content));
+}
+
+export function getBacklinks(slug: string): PostData[] {
+  return getSortedPostsData()
+    .filter((post) => post.slug !== slug)
+    .filter((post) => {
+      const fullPath = path.join(postsDirectory, `${post.slug}.md`);
+      const fileContents = fs.readFileSync(fullPath, "utf8");
+      const matterResult = matter(fileContents);
+      return postLinksToSlug(matterResult.content, slug);
+    });
 }

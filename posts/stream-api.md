@@ -1289,4 +1289,4 @@ List<Product> products = Arrays.asList(
 ---
 
 **上一步：** [方法引用完全指南](./post-mpou6s96.md)  
-**下一步：** （可选）[并行流深入解析](/my-blog/blog/04_Parallel_Stream)
+**下一步：** （可选）[并行流章节](#①-并行流parallel-stream)

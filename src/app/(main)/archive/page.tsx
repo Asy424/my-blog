@@ -76,6 +76,7 @@ export default function ArchivePage() {
               <div className="space-y-3">
                 {group.posts.map((post) => (
                   <Link
+                    suppressHydrationWarning
                     key={post.slug}
                     href={`/blog/${post.slug}`}
                     className="group flex flex-col gap-2 rounded-lg border border-border bg-card p-4 transition-all duration-300 hover:border-accent hover:-translate-y-0.5 sm:flex-row sm:items-start sm:justify-between"

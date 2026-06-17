@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>我的博客</title>
     <link>https://asy424.github.io/my-blog</link>
@@ -13,6 +13,1180 @@
       <description></description>
       <pubDate>Thu, 28 May 2026 00:00:00 GMT</pubDate>
       <guid>https://asy424.github.io/my-blog/blog/stream-api</guid>
+      <content:encoded><![CDATA[<h1>Stream API 完全指南</h1>
+<blockquote>
+<p>Java 8 引入的声明式数据处理工具，让集合操作更简洁、更高效。</p>
+</blockquote>
+<hr>
+<h2>目录</h2>
+<ul>
+<li><a href="#1-%E4%BB%80%E4%B9%88%E6%98%AF-stream">1. 什么是 Stream</a></li>
+<li><a href="#2-stream-%E7%9A%84%E6%A0%B8%E5%BF%83%E7%89%B9%E7%82%B9">2. Stream 的核心特点</a></li>
+<li><a href="#3-stream-%E7%9A%84%E6%93%8D%E4%BD%9C%E6%B5%81%E7%A8%8B">3. Stream 的操作流程</a></li>
+<li><a href="#4-%E5%88%9B%E5%BB%BA-stream">4. 创建 Stream</a></li>
+<li><a href="#5-%E4%B8%AD%E9%97%B4%E6%93%8D%E4%BD%9Cintermediate-operations">5. 中间操作（Intermediate Operations）</a></li>
+<li><a href="#6-%E7%BB%88%E7%AB%AF%E6%93%8D%E4%BD%9Cterminal-operations">6. 终端操作（Terminal Operations）</a></li>
+<li><a href="#7-%E7%BB%BC%E5%90%88%E5%AE%9E%E6%88%98%E6%A1%88%E4%BE%8B">7. 综合实战案例</a></li>
+<li><a href="#8-%E9%AB%98%E7%BA%A7%E7%89%B9%E6%80%A7">8. 高级特性</a></li>
+<li><a href="#9-%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9%E4%B8%8E%E9%99%B7%E9%98%B1">9. 注意事项与陷阱</a></li>
+<li><a href="#10-%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5">10. 最佳实践</a></li>
+<li><a href="#11-%E6%80%BB%E7%BB%93">11. 总结</a></li>
+</ul>
+<hr>
+<h2>1. 什么是 Stream</h2>
+<p>Stream（流）是 Java 8 引入的一种<strong>抽象概念</strong>，用于处理集合中的数据。它允许你以声明式的方式处理数据集合，类似于 SQL 查询数据库。</p>
+<h3>核心思想</h3>
+<pre><code class="language-java">// 传统方式：命令式编程（告诉计算机怎么做）
+List&#x3C;String> result = new ArrayList&#x3C;>();
+for (String name : names) {
+    if (name.startsWith("A")) {
+        result.add(name.toUpperCase());
+    }
+}
+
+// Stream 方式：声明式编程（告诉计算机要什么）
+List&#x3C;String> result = names.stream()
+    .filter(name -> name.startsWith("A"))
+    .map(String::toUpperCase)
+    .collect(Collectors.toList());
+</code></pre>
+<h3>本质理解</h3>
+<ul>
+<li><strong>Stream 不是数据结构</strong>，不存储数据</li>
+<li><strong>Stream 不会修改源数据</strong>，返回新的结果</li>
+<li><strong>Stream 支持链式调用</strong>，像流水线一样处理数据</li>
+<li><strong>Stream 可以并行执行</strong>，充分利用多核 CPU</li>
+</ul>
+<hr>
+<h2>2. Stream 的核心特点</h2>
+<h3>✅ 1. 声明式编程</h3>
+<p>只需描述"要什么"，不需要关心"怎么做"。</p>
+<h3>✅ 2. 惰性求值（Lazy Evaluation）</h3>
+<p>中间操作不会立即执行，只有遇到终端操作时才会触发计算。</p>
+<h3>✅ 3. 不可变性</h3>
+<p>Stream 不会修改源数据，每次操作都产生新的 Stream。</p>
+<h3>✅ 4. 可并行化</h3>
+<p>通过 <code>parallel()</code> 方法轻松实现并行处理。</p>
+<h3>✅ 5. 一次性消费</h3>
+<p>Stream 只能被消费一次，使用后必须重新创建。</p>
+<hr>
+<h2>3. Stream 的操作流程</h2>
+<p>Stream 的操作分为三个阶段：</p>
+<pre><code>创建 Stream → 中间操作（零个或多个） → 终端操作（一个）
+</code></pre>
+<h3>流程图</h3>
+<pre><code>数据源
+  ↓
+创建 Stream (stream/parallelStream)
+  ↓
+中间操作 (filter/map/sorted...) ← 惰性求值，不执行
+  ↓
+中间操作 (filter/map/sorted...) ← 惰性求值，不执行
+  ↓
+终端操作 (collect/forEach/reduce) ← 触发执行
+  ↓
+结果
+</code></pre>
+<h3>示例</h3>
+<pre><code class="language-java">List&#x3C;String> names = Arrays.asList("Alice", "Bob", "Charlie", "David");
+
+long count = names.stream()           // ① 创建 Stream
+    .filter(n -> n.length() > 3)     // ② 中间操作（不执行）
+    .map(String::toUpperCase)        // ③ 中间操作（不执行）
+    .count();                        // ④ 终端操作（触发执行）
+
+System.out.println(count); // 3 (Alice, Charlie, David)
+</code></pre>
+<hr>
+<h2>4. 创建 Stream</h2>
+<h3>① 从集合创建</h3>
+<pre><code class="language-java">List&#x3C;String> list = Arrays.asList("a", "b", "c");
+
+// 串行流
+Stream&#x3C;String> stream = list.stream();
+
+// 并行流
+Stream&#x3C;String> parallelStream = list.parallelStream();
+</code></pre>
+<hr>
+<h3>② 从数组创建</h3>
+<pre><code class="language-java">String[] array = {"a", "b", "c"};
+
+// 使用 Arrays.stream
+Stream&#x3C;String> stream = Arrays.stream(array);
+
+// 使用 Stream.of
+Stream&#x3C;String> stream2 = Stream.of(array);
+</code></pre>
+<hr>
+<h3>③ 直接创建</h3>
+<pre><code class="language-java">// Stream.of
+Stream&#x3C;String> stream = Stream.of("a", "b", "c");
+
+// Stream.empty
+Stream&#x3C;Object> empty = Stream.empty();
+
+// Stream.iterate（无限流）
+Stream&#x3C;Integer> iterate = Stream.iterate(0, n -> n + 2);
+iterate.limit(5).forEach(System.out::println); // 0, 2, 4, 6, 8
+
+// Stream.generate（无限流）
+Stream&#x3C;Double> generate = Stream.generate(Math::random);
+generate.limit(3).forEach(System.out::println); // 随机数
+</code></pre>
+<hr>
+<h3>④ 从文件创建</h3>
+<pre><code class="language-java">// 读取文件每一行
+try (Stream&#x3C;String> lines = Files.lines(Paths.get("file.txt"))) {
+    lines.forEach(System.out::println);
+} catch (IOException e) {
+    e.printStackTrace();
+}
+</code></pre>
+<hr>
+<h3>⑤ 从正则表达式创建</h3>
+<pre><code class="language-java">// 分割字符串为 Stream
+Stream&#x3C;String> words = Pattern.compile("\\s+")
+    .splitAsStream("Hello World Java Stream");
+
+words.forEach(System.out::println);
+// Hello
+// World
+// Java
+// Stream
+</code></pre>
+<hr>
+<h2>5. 中间操作（Intermediate Operations）</h2>
+<p>中间操作返回新的 Stream，可以链式调用，<strong>惰性求值</strong>。</p>
+<h3>中间操作总览</h3>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>类型</th>
+<th>说明</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>filter</code></td>
+<td>有状态/无状态</td>
+<td>过滤元素</td>
+<td><code>filter(n -> n > 0)</code></td>
+</tr>
+<tr>
+<td><code>map</code></td>
+<td>无状态</td>
+<td>转换元素</td>
+<td><code>map(String::toUpperCase)</code></td>
+</tr>
+<tr>
+<td><code>flatMap</code></td>
+<td>无状态</td>
+<td>扁平化映射</td>
+<td><code>flatMap(list -> list.stream())</code></td>
+</tr>
+<tr>
+<td><code>distinct</code></td>
+<td>有状态</td>
+<td>去重</td>
+<td><code>distinct()</code></td>
+</tr>
+<tr>
+<td><code>sorted</code></td>
+<td>有状态</td>
+<td>排序</td>
+<td><code>sorted()</code></td>
+</tr>
+<tr>
+<td><code>limit</code></td>
+<td>有状态</td>
+<td>截取前n个</td>
+<td><code>limit(5)</code></td>
+</tr>
+<tr>
+<td><code>skip</code></td>
+<td>有状态</td>
+<td>跳过前n个</td>
+<td><code>skip(3)</code></td>
+</tr>
+<tr>
+<td><code>peek</code></td>
+<td>无状态</td>
+<td>调试查看</td>
+<td><code>peek(System.out::println)</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h3>① filter - 过滤</h3>
+<p>根据条件过滤元素。</p>
+<pre><code class="language-java">List&#x3C;Integer> numbers = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+
+// 过滤出偶数
+List&#x3C;Integer> evens = numbers.stream()
+    .filter(n -> n % 2 == 0)
+    .collect(Collectors.toList());
+
+System.out.println(evens); // [2, 4, 6, 8, 10]
+
+// 过滤出大于5的奇数
+List&#x3C;Integer> result = numbers.stream()
+    .filter(n -> n > 5)
+    .filter(n -> n % 2 != 0)
+    .collect(Collectors.toList());
+
+System.out.println(result); // [7, 9]
+</code></pre>
+<hr>
+<h3>② map - 转换</h3>
+<p>将每个元素转换为另一种形式。</p>
+<pre><code class="language-java">List&#x3C;String> names = Arrays.asList("alice", "bob", "charlie");
+
+// 转为大写
+List&#x3C;String> upper = names.stream()
+    .map(String::toUpperCase)
+    .collect(Collectors.toList());
+
+System.out.println(upper); // [ALICE, BOB, CHARLIE]
+
+// 获取字符串长度
+List&#x3C;Integer> lengths = names.stream()
+    .map(String::length)
+    .collect(Collectors.toList());
+
+System.out.println(lengths); // [5, 3, 7]
+
+// 提取对象属性
+List&#x3C;User> users = Arrays.asList(
+    new User("Alice", 25),
+    new User("Bob", 20),
+    new User("Charlie", 30)
+);
+
+List&#x3C;String> userNames = users.stream()
+    .map(User::getName)
+    .collect(Collectors.toList());
+
+System.out.println(userNames); // [Alice, Bob, Charlie]
+</code></pre>
+<hr>
+<h3>③ flatMap - 扁平化映射</h3>
+<p>将嵌套结构展平为一层。</p>
+<pre><code class="language-java">// 场景：List&#x3C;List&#x3C;String>> 转为 List&#x3C;String>
+List&#x3C;List&#x3C;String>> nested = Arrays.asList(
+    Arrays.asList("a", "b"),
+    Arrays.asList("c", "d"),
+    Arrays.asList("e", "f")
+);
+
+// 使用 flatMap 展平
+List&#x3C;String> flat = nested.stream()
+    .flatMap(Collection::stream)
+    .collect(Collectors.toList());
+
+System.out.println(flat); // [a, b, c, d, e, f]
+
+// 场景：句子拆分为单词
+List&#x3C;String> sentences = Arrays.asList(
+    "Hello World",
+    "Java Stream",
+    "Flat Map"
+);
+
+List&#x3C;String> words = sentences.stream()
+    .flatMap(sentence -> Arrays.stream(sentence.split(" ")))
+    .collect(Collectors.toList());
+
+System.out.println(words); // [Hello, World, Java, Stream, Flat, Map]
+</code></pre>
+<p><strong>map vs flatMap 对比：</strong></p>
+<pre><code class="language-java">// map: 一对一转换
+["abc", "def"] --map--> ["ABC", "DEF"]
+
+// flatMap: 一对多转换 + 展平
+[["a","b"], ["c","d"]] --flatMap--> ["a", "b", "c", "d"]
+</code></pre>
+<hr>
+<h3>④ distinct - 去重</h3>
+<p>去除重复元素（基于 <code>equals()</code> 方法）。</p>
+<pre><code class="language-java">List&#x3C;Integer> numbers = Arrays.asList(1, 2, 2, 3, 3, 3, 4, 5);
+
+List&#x3C;Integer> distinct = numbers.stream()
+    .distinct()
+    .collect(Collectors.toList());
+
+System.out.println(distinct); // [1, 2, 3, 4, 5]
+
+// 对象去重（需要重写 equals 和 hashCode）
+List&#x3C;User> users = Arrays.asList(
+    new User("Alice", 25),
+    new User("Alice", 25), // 重复
+    new User("Bob", 20)
+);
+
+List&#x3C;User> unique = users.stream()
+    .distinct()
+    .collect(Collectors.toList());
+</code></pre>
+<hr>
+<h3>⑤ sorted - 排序</h3>
+<p>对元素进行排序。</p>
+<pre><code class="language-java">List&#x3C;Integer> numbers = Arrays.asList(5, 2, 8, 1, 9, 3);
+
+// 自然排序（升序）
+List&#x3C;Integer> sorted = numbers.stream()
+    .sorted()
+    .collect(Collectors.toList());
+
+System.out.println(sorted); // [1, 2, 3, 5, 8, 9]
+
+// 自定义排序（降序）
+List&#x3C;Integer> desc = numbers.stream()
+    .sorted(Comparator.reverseOrder())
+    .collect(Collectors.toList());
+
+System.out.println(desc); // [9, 8, 5, 3, 2, 1]
+
+// 对象排序
+List&#x3C;User> users = Arrays.asList(
+    new User("Alice", 25),
+    new User("Bob", 20),
+    new User("Charlie", 30)
+);
+
+// 按年龄升序
+List&#x3C;User> byAge = users.stream()
+    .sorted(Comparator.comparing(User::getAge))
+    .collect(Collectors.toList());
+
+// 按年龄降序
+List&#x3C;User> byAgeDesc = users.stream()
+    .sorted(Comparator.comparing(User::getAge).reversed())
+    .collect(Collectors.toList());
+
+// 多字段排序：先按年龄，再按姓名
+List&#x3C;User> multiSort = users.stream()
+    .sorted(Comparator.comparing(User::getAge)
+        .thenComparing(User::getName))
+    .collect(Collectors.toList());
+</code></pre>
+<hr>
+<h3>⑥ limit - 截取</h3>
+<p>截取前 n 个元素。</p>
+<pre><code class="language-java">List&#x3C;Integer> numbers = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+
+List&#x3C;Integer> first5 = numbers.stream()
+    .limit(5)
+    .collect(Collectors.toList());
+
+System.out.println(first5); // [1, 2, 3, 4, 5]
+
+// 结合无限流使用
+Stream.iterate(0, n -> n + 2)
+    .limit(5)
+    .forEach(System.out::println); // 0, 2, 4, 6, 8
+</code></pre>
+<hr>
+<h3>⑦ skip - 跳过</h3>
+<p>跳过前 n 个元素。</p>
+<pre><code class="language-java">List&#x3C;Integer> numbers = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+
+List&#x3C;Integer> after5 = numbers.stream()
+    .skip(5)
+    .collect(Collectors.toList());
+
+System.out.println(after5); // [6, 7, 8, 9, 10]
+
+// 分页：跳过前10个，取后5个
+List&#x3C;Integer> page2 = numbers.stream()
+    .skip(10)
+    .limit(5)
+    .collect(Collectors.toList());
+</code></pre>
+<hr>
+<h3>⑧ peek - 调试查看</h3>
+<p>在不影响流的情况下查看元素（主要用于调试）。</p>
+<pre><code class="language-java">List&#x3C;String> names = Arrays.asList("alice", "bob", "charlie");
+
+List&#x3C;String> result = names.stream()
+    .peek(n -> System.out.println("原始: " + n))
+    .map(String::toUpperCase)
+    .peek(n -> System.out.println("转换后: " + n))
+    .collect(Collectors.toList());
+
+// 输出：
+// 原始: alice
+// 转换后: ALICE
+// 原始: bob
+// 转换后: BOB
+// 原始: charlie
+// 转换后: CHARLIE
+</code></pre>
+<hr>
+<h2>6. 终端操作（Terminal Operations）</h2>
+<p>终端操作会触发 Stream 的执行，返回结果或产生副作用。<strong>Stream 只能有一个终端操作</strong>。</p>
+<h3>终端操作总览</h3>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>返回类型</th>
+<th>说明</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>forEach</code></td>
+<td>void</td>
+<td>遍历元素</td>
+<td><code>forEach(System.out::println)</code></td>
+</tr>
+<tr>
+<td><code>collect</code></td>
+<td>R</td>
+<td>收集结果</td>
+<td><code>collect(Collectors.toList())</code></td>
+</tr>
+<tr>
+<td><code>reduce</code></td>
+<td>Optional/T</td>
+<td>归约</td>
+<td><code>reduce(0, Integer::sum)</code></td>
+</tr>
+<tr>
+<td><code>count</code></td>
+<td>long</td>
+<td>计数</td>
+<td><code>count()</code></td>
+</tr>
+<tr>
+<td><code>findFirst</code></td>
+<td>Optional</td>
+<td>第一个元素</td>
+<td><code>findFirst()</code></td>
+</tr>
+<tr>
+<td><code>findAny</code></td>
+<td>Optional</td>
+<td>任意元素</td>
+<td><code>findAny()</code></td>
+</tr>
+<tr>
+<td><code>anyMatch</code></td>
+<td>boolean</td>
+<td>任一匹配</td>
+<td><code>anyMatch(n -> n > 5)</code></td>
+</tr>
+<tr>
+<td><code>allMatch</code></td>
+<td>boolean</td>
+<td>全部匹配</td>
+<td><code>allMatch(n -> n > 0)</code></td>
+</tr>
+<tr>
+<td><code>noneMatch</code></td>
+<td>boolean</td>
+<td>无一匹配</td>
+<td><code>noneMatch(n -> n &#x3C; 0)</code></td>
+</tr>
+<tr>
+<td><code>max/min</code></td>
+<td>Optional</td>
+<td>最大/最小值</td>
+<td><code>max(Comparator.naturalOrder())</code></td>
+</tr>
+<tr>
+<td><code>toArray</code></td>
+<td>Object[]</td>
+<td>转数组</td>
+<td><code>toArray()</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h3>① forEach - 遍历</h3>
+<p>对每个元素执行操作。</p>
+<pre><code class="language-java">List&#x3C;String> names = Arrays.asList("Alice", "Bob", "Charlie");
+
+// 打印每个元素
+names.stream().forEach(System.out::println);
+
+// 或者更简洁
+names.forEach(System.out::println);
+
+// 带索引的遍历（需要额外处理）
+IntStream.range(0, names.size())
+    .forEach(i -> System.out.println(i + ": " + names.get(i)));
+</code></pre>
+<hr>
+<h3>② collect - 收集</h3>
+<p>将 Stream 中的元素收集到集合或其他容器中。</p>
+<h4>收集到 List</h4>
+<pre><code class="language-java">List&#x3C;String> names = Arrays.asList("alice", "bob", "charlie");
+
+List&#x3C;String> upper = names.stream()
+    .map(String::toUpperCase)
+    .collect(Collectors.toList());
+
+// Java 16+ 可以使用 toList()
+List&#x3C;String> upper2 = names.stream()
+    .map(String::toUpperCase)
+    .toList();
+</code></pre>
+<h4>收集到 Set</h4>
+<pre><code class="language-java">List&#x3C;Integer> numbers = Arrays.asList(1, 2, 2, 3, 3, 3);
+
+Set&#x3C;Integer> unique = numbers.stream()
+    .collect(Collectors.toSet());
+
+System.out.println(unique); // [1, 2, 3]
+</code></pre>
+<h4>收集到 Map</h4>
+<pre><code class="language-java">List&#x3C;User> users = Arrays.asList(
+    new User("Alice", 25),
+    new User("Bob", 20),
+    new User("Charlie", 30)
+);
+
+// 姓名 -> 用户对象
+Map&#x3C;String, User> userMap = users.stream()
+    .collect(Collectors.toMap(User::getName, user -> user));
+
+// 姓名 -> 年龄
+Map&#x3C;String, Integer> ageMap = users.stream()
+    .collect(Collectors.toMap(User::getName, User::getAge));
+
+System.out.println(ageMap); // {Alice=25, Bob=20, Charlie=30}
+</code></pre>
+<h4>分组（Grouping By）</h4>
+<pre><code class="language-java">List&#x3C;User> users = Arrays.asList(
+    new User("Alice", 25),
+    new User("Bob", 20),
+    new User("Charlie", 30),
+    new User("David", 25)
+);
+
+// 按年龄分组
+Map&#x3C;Integer, List&#x3C;User>> byAge = users.stream()
+    .collect(Collectors.groupingBy(User::getAge));
+
+System.out.println(byAge);
+// {20=[Bob], 25=[Alice, David], 30=[Charlie]}
+
+// 按年龄段分组
+Map&#x3C;String, List&#x3C;User>> byAgeGroup = users.stream()
+    .collect(Collectors.groupingBy(user -> {
+        if (user.getAge() &#x3C; 25) return "青年";
+        else return "中年";
+    }));
+
+System.out.println(byAgeGroup);
+// {青年=[Bob], 中年=[Alice, Charlie, David]}
+</code></pre>
+<h4>分区（Partitioning By）</h4>
+<pre><code class="language-java">// 按条件分为两组（true/false）
+Map&#x3C;Boolean, List&#x3C;User>> partitioned = users.stream()
+    .collect(Collectors.partitioningBy(user -> user.getAge() >= 25));
+
+System.out.println(partitioned);
+// {false=[Bob], true=[Alice, Charlie, David]}
+</code></pre>
+<h4>joining - 字符串拼接</h4>
+<pre><code class="language-java">List&#x3C;String> names = Arrays.asList("Alice", "Bob", "Charlie");
+
+// 简单拼接
+String joined = names.stream()
+    .collect(Collectors.joining());
+
+System.out.println(joined); // AliceBobCharlie
+
+// 带分隔符
+String joined2 = names.stream()
+    .collect(Collectors.joining(", "));
+
+System.out.println(joined2); // Alice, Bob, Charlie
+
+// 带前后缀
+String joined3 = names.stream()
+    .collect(Collectors.joining(", ", "[", "]"));
+
+System.out.println(joined3); // [Alice, Bob, Charlie]
+</code></pre>
+<hr>
+<h3>③ reduce - 归约</h3>
+<p>将 Stream 中的元素归约为单个值。</p>
+<pre><code class="language-java">List&#x3C;Integer> numbers = Arrays.asList(1, 2, 3, 4, 5);
+
+// 求和（方式1：reduce）
+int sum = numbers.stream()
+    .reduce(0, (a, b) -> a + b);
+
+// 求和（方式2：方法引用）
+int sum2 = numbers.stream()
+    .reduce(0, Integer::sum);
+
+System.out.println(sum); // 15
+
+// 求最大值
+Optional&#x3C;Integer> max = numbers.stream()
+    .reduce(Integer::max);
+
+System.out.println(max.get()); // 5
+
+// 字符串拼接
+List&#x3C;String> names = Arrays.asList("Alice", "Bob", "Charlie");
+String result = names.stream()
+    .reduce("", (a, b) -> a + ", " + b);
+
+System.out.println(result); // , Alice, Bob, Charlie（注意前面的逗号）
+</code></pre>
+<p><strong>reduce 的三个参数版本：</strong></p>
+<pre><code class="language-java">// reduce(identity, accumulator, combiner)
+// identity: 初始值
+// accumulator: 累加器
+// combiner: 合并器（并行流时使用）
+
+int sum = numbers.parallelStream()
+    .reduce(0, Integer::sum, Integer::sum);
+</code></pre>
+<hr>
+<h3>④ count - 计数</h3>
+<p>统计元素数量。</p>
+<pre><code class="language-java">List&#x3C;String> names = Arrays.asList("Alice", "Bob", "Charlie");
+
+long count = names.stream()
+    .filter(n -> n.length() > 3)
+    .count();
+
+System.out.println(count); // 2 (Alice, Charlie)
+</code></pre>
+<hr>
+<h3>⑤ findFirst / findAny - 查找</h3>
+<pre><code class="language-java">List&#x3C;Integer> numbers = Arrays.asList(1, 2, 3, 4, 5);
+
+// 查找第一个偶数
+Optional&#x3C;Integer> firstEven = numbers.stream()
+    .filter(n -> n % 2 == 0)
+    .findFirst();
+
+System.out.println(firstEven.get()); // 2
+
+// 查找任意一个偶数（并行流时性能更好）
+Optional&#x3C;Integer> anyEven = numbers.parallelStream()
+    .filter(n -> n % 2 == 0)
+    .findAny();
+
+System.out.println(anyEven.get()); // 2 或 4
+</code></pre>
+<p><strong>Optional 处理：</strong></p>
+<pre><code class="language-java">Optional&#x3C;Integer> result = numbers.stream()
+    .filter(n -> n > 100)
+    .findFirst();
+
+// 方式1：orElse
+int value = result.orElse(0);
+
+// 方式2：orElseGet
+int value2 = result.orElseGet(() -> 0);
+
+// 方式3：orElseThrow
+int value3 = result.orElseThrow(() -> new NoSuchElementException());
+
+// 方式4：ifPresent
+result.ifPresent(System.out::println);
+</code></pre>
+<hr>
+<h3>⑥ anyMatch / allMatch / noneMatch - 匹配</h3>
+<pre><code class="language-java">List&#x3C;Integer> numbers = Arrays.asList(1, 2, 3, 4, 5);
+
+// 是否有任意一个大于3
+boolean any = numbers.stream()
+    .anyMatch(n -> n > 3);
+
+System.out.println(any); // true
+
+// 是否全部大于0
+boolean all = numbers.stream()
+    .allMatch(n -> n > 0);
+
+System.out.println(all); // true
+
+// 是否没有负数
+boolean none = numbers.stream()
+    .noneMatch(n -> n &#x3C; 0);
+
+System.out.println(none); // true
+</code></pre>
+<p><strong>短路特性：</strong> 一旦确定结果就停止遍历（类似 <code>||</code> 和 <code>&#x26;&#x26;</code>）。</p>
+<hr>
+<h3>⑦ max / min - 最值</h3>
+<pre><code class="language-java">List&#x3C;Integer> numbers = Arrays.asList(5, 2, 8, 1, 9, 3);
+
+// 最大值
+Optional&#x3C;Integer> max = numbers.stream()
+    .max(Comparator.naturalOrder());
+
+System.out.println(max.get()); // 9
+
+// 最小值
+Optional&#x3C;Integer> min = numbers.stream()
+    .min(Comparator.naturalOrder());
+
+System.out.println(min.get()); // 1
+
+// 对象最值
+List&#x3C;User> users = Arrays.asList(
+    new User("Alice", 25),
+    new User("Bob", 20),
+    new User("Charlie", 30)
+);
+
+User oldest = users.stream()
+    .max(Comparator.comparing(User::getAge))
+    .get();
+
+System.out.println(oldest.getName()); // Charlie
+</code></pre>
+<hr>
+<h3>⑧ toArray - 转数组</h3>
+<pre><code class="language-java">List&#x3C;String> names = Arrays.asList("Alice", "Bob", "Charlie");
+
+// 转为 Object[]
+Object[] array = names.stream().toArray();
+
+// 转为 String[]
+String[] stringArray = names.stream().toArray(String[]::new);
+
+System.out.println(Arrays.toString(stringArray)); // [Alice, Bob, Charlie]
+</code></pre>
+<hr>
+<h2>7. 综合实战案例</h2>
+<h3>案例 1：数据分析</h3>
+<pre><code class="language-java">List&#x3C;User> users = Arrays.asList(
+    new User("Alice", 25, "Engineering"),
+    new User("Bob", 20, "Marketing"),
+    new User("Charlie", 30, "Engineering"),
+    new User("David", 25, "Marketing"),
+    new User("Eve", 35, "Engineering")
+);
+
+// 1. 统计工程部人数
+long engineeringCount = users.stream()
+    .filter(u -> "Engineering".equals(u.getDepartment()))
+    .count();
+
+System.out.println("工程部人数: " + engineeringCount); // 3
+
+// 2. 获取所有部门名称（去重）
+List&#x3C;String> departments = users.stream()
+    .map(User::getDepartment)
+    .distinct()
+    .collect(Collectors.toList());
+
+System.out.println("部门: " + departments); // [Engineering, Marketing]
+
+// 3. 按部门分组，统计平均年龄
+Map&#x3C;String, Double> avgAgeByDept = users.stream()
+    .collect(Collectors.groupingBy(
+        User::getDepartment,
+        Collectors.averagingInt(User::getAge)
+    ));
+
+System.out.println(avgAgeByDept);
+// {Engineering=30.0, Marketing=22.5}
+
+// 4. 找出每个部门年龄最大的人
+Map&#x3C;String, Optional&#x3C;User>> oldestByDept = users.stream()
+    .collect(Collectors.groupingBy(
+        User::getDepartment,
+        Collectors.maxBy(Comparator.comparing(User::getAge))
+    ));
+
+// 5. 获取年龄大于25的用户姓名，按字母排序
+List&#x3C;String> names = users.stream()
+    .filter(u -> u.getAge() > 25)
+    .map(User::getName)
+    .sorted()
+    .collect(Collectors.toList());
+
+System.out.println(names); // [Charlie, Eve]
+</code></pre>
+<hr>
+<h3>案例 2：文本处理</h3>
+<pre><code class="language-java">String text = "Hello World Java Stream Hello World";
+
+// 1. 统计单词频率
+Map&#x3C;String, Long> wordCount = Pattern.compile("\\s+")
+    .splitAsStream(text)
+    .collect(Collectors.groupingBy(
+        word -> word.toLowerCase(),
+        Collectors.counting()
+    ));
+
+System.out.println(wordCount);
+// {hello=2, world=2, java=1, stream=1}
+
+// 2. 找出出现次数最多的单词
+String mostFrequent = wordCount.entrySet().stream()
+    .max(Map.Entry.comparingByValue())
+    .map(Map.Entry::getKey)
+    .orElse("N/A");
+
+System.out.println("最常出现的单词: " + mostFrequent); // hello 或 world
+</code></pre>
+<hr>
+<h3>案例 3：订单处理</h3>
+<pre><code class="language-java">List&#x3C;Order> orders = Arrays.asList(
+    new Order(1, "Alice", 100.0, "COMPLETED"),
+    new Order(2, "Bob", 200.0, "PENDING"),
+    new Order(3, "Charlie", 150.0, "COMPLETED"),
+    new Order(4, "David", 300.0, "CANCELLED"),
+    new Order(5, "Eve", 250.0, "COMPLETED")
+);
+
+// 1. 计算已完成订单的总金额
+double totalCompleted = orders.stream()
+    .filter(o -> "COMPLETED".equals(o.getStatus()))
+    .mapToDouble(Order::getAmount)
+    .sum();
+
+System.out.println("已完成订单总额: " + totalCompleted); // 500.0
+
+// 2. 按客户分组，计算每个客户的订单总额
+Map&#x3C;String, Double> totalByCustomer = orders.stream()
+    .collect(Collectors.groupingBy(
+        Order::getCustomer,
+        Collectors.summingDouble(Order::getAmount)
+    ));
+
+System.out.println(totalByCustomer);
+// {Alice=100.0, Bob=200.0, Charlie=150.0, David=300.0, Eve=250.0}
+
+// 3. 找出金额最高的订单
+Order highestOrder = orders.stream()
+    .max(Comparator.comparing(Order::getAmount))
+    .get();
+
+System.out.println("最高金额订单: " + highestOrder.getId()); // 4
+</code></pre>
+<hr>
+<h2>8. 高级特性</h2>
+<h3>① 并行流（Parallel Stream）</h3>
+<p>利用多核 CPU 并行处理数据。</p>
+<pre><code class="language-java">List&#x3C;Integer> numbers = IntStream.rangeClosed(1, 1_000_000)
+    .boxed()
+    .collect(Collectors.toList());
+
+// 串行流
+long start = System.currentTimeMillis();
+long sum = numbers.stream()
+    .mapToLong(Long::valueOf)
+    .sum();
+System.out.println("串行耗时: " + (System.currentTimeMillis() - start) + "ms");
+
+// 并行流
+start = System.currentTimeMillis();
+long sum2 = numbers.parallelStream()
+    .mapToLong(Long::valueOf)
+    .sum();
+System.out.println("并行耗时: " + (System.currentTimeMillis() - start) + "ms");
+</code></pre>
+<p><strong>注意事项：</strong></p>
+<ul>
+<li>并行流适合<strong>大数据量</strong>和<strong>CPU 密集型</strong>操作</li>
+<li>不适合<strong>I/O 密集型</strong>或<strong>小数据量</strong></li>
+<li>注意线程安全问题</li>
+</ul>
+<hr>
+<h3>② 基本类型 Stream</h3>
+<p>Java 提供了三种基本类型的 Stream，避免装箱/拆箱开销。</p>
+<pre><code class="language-java">// IntStream
+IntStream intStream = IntStream.rangeClosed(1, 10);
+int sum = intStream.sum(); // 55
+
+// LongStream
+LongStream longStream = LongStream.rangeClosed(1L, 10L);
+long sum2 = longStream.sum(); // 55
+
+// DoubleStream
+DoubleStream doubleStream = DoubleStream.of(1.1, 2.2, 3.3);
+double sum3 = doubleStream.sum(); // 6.6
+</code></pre>
+<p><strong>常用方法：</strong></p>
+<pre><code class="language-java">// 生成范围
+IntStream.range(1, 10);      // 1-9（不包含10）
+IntStream.rangeClosed(1, 10); // 1-10（包含10）
+
+// 统计
+IntSummaryStatistics stats = IntStream.of(1, 2, 3, 4, 5)
+    .summaryStatistics();
+
+System.out.println("最大值: " + stats.getMax());     // 5
+System.out.println("最小值: " + stats.getMin());     // 1
+System.out.println("平均值: " + stats.getAverage()); // 3.0
+System.out.println("总和: " + stats.getSum());       // 15
+System.out.println("数量: " + stats.getCount());     // 5
+</code></pre>
+<hr>
+<h3>③ Optional 与 Stream 结合</h3>
+<pre><code class="language-java">List&#x3C;User> users = Arrays.asList(
+    new User("Alice", 25),
+    new User("Bob", null), // 年龄为空
+    new User("Charlie", 30)
+);
+
+// 过滤掉年龄为空的用戶
+List&#x3C;Integer> ages = users.stream()
+    .map(User::getAge)
+    .filter(Objects::nonNull)
+    .collect(Collectors.toList());
+
+// 或者使用 flatMap + Optional
+List&#x3C;Integer> ages2 = users.stream()
+    .flatMap(user -> Optional.ofNullable(user.getAge()).stream())
+    .collect(Collectors.toList());
+</code></pre>
+<hr>
+<h3>④ 自定义 Collector</h3>
+<pre><code class="language-java">// 将字符串收集为逗号分隔的大写字符串
+Collector&#x3C;String, ?, String> customCollector = Collectors.collectingAndThen(
+    Collectors.mapping(String::toUpperCase, Collectors.toList()),
+    list -> String.join(", ", list)
+);
+
+List&#x3C;String> names = Arrays.asList("alice", "bob", "charlie");
+String result = names.stream().collect(customCollector);
+
+System.out.println(result); // ALICE, BOB, CHARLIE
+</code></pre>
+<hr>
+<h2>9. 注意事项与陷阱</h2>
+<h3>⚠️ 1. Stream 只能消费一次</h3>
+<pre><code class="language-java">Stream&#x3C;String> stream = names.stream();
+
+// 第一次使用
+stream.forEach(System.out::println); // ✅
+
+// 第二次使用
+stream.map(String::toUpperCase); // ❌ IllegalStateException
+</code></pre>
+<p><strong>解决方案：</strong> 重新创建 Stream</p>
+<pre><code class="language-java">names.stream().forEach(System.out::println);
+names.stream().map(String::toUpperCase);
+</code></pre>
+<hr>
+<h3>⚠️ 2. 不要在 Stream 中修改外部变量</h3>
+<pre><code class="language-java">int sum = 0;
+// numbers.forEach(n -> sum += n); // ❌ 编译错误
+
+// 正确做法：使用 reduce
+int sum = numbers.stream().reduce(0, Integer::sum);
+</code></pre>
+<hr>
+<h3>⚠️ 3. 注意 NullPointerException</h3>
+<pre><code class="language-java">List&#x3C;String> names = Arrays.asList("Alice", null, "Bob");
+
+// ❌ 可能抛出 NullPointerException
+names.stream()
+    .map(String::toUpperCase)
+    .forEach(System.out::println);
+
+// ✅ 先过滤 null
+names.stream()
+    .filter(Objects::nonNull)
+    .map(String::toUpperCase)
+    .forEach(System.out::println);
+</code></pre>
+<hr>
+<h3>⚠️ 4. 并行流的线程安全</h3>
+<pre><code class="language-java">List&#x3C;Integer> result = new ArrayList&#x3C;>();
+
+// ❌ 线程不安全
+numbers.parallelStream().forEach(result::add);
+
+// ✅ 线程安全
+List&#x3C;Integer> result2 = numbers.parallelStream()
+    .collect(Collectors.toList());
+</code></pre>
+<hr>
+<h3>⚠️ 5. 惰性求值的陷阱</h3>
+<pre><code class="language-java">// peek 只在终端操作执行时才生效
+Stream&#x3C;String> stream = names.stream()
+    .peek(System.out::println); // 不会打印
+
+// 必须有终端操作
+stream.collect(Collectors.toList()); // 才会打印
+</code></pre>
+<hr>
+<h3>⚠️ 6. 避免过度使用 Stream</h3>
+<pre><code class="language-java">// ❌ 简单操作用 Stream 反而复杂
+Optional&#x3C;String> first = names.stream().findFirst();
+
+// ✅ 直接用集合方法
+String first = names.isEmpty() ? null : names.get(0);
+</code></pre>
+<hr>
+<h2>10. 最佳实践</h2>
+<h3>📌 1. 优先使用方法引用</h3>
+<pre><code class="language-java">// 推荐
+names.stream().map(String::toUpperCase)
+
+// 不推荐
+names.stream().map(name -> name.toUpperCase())
+</code></pre>
+<hr>
+<h3>📌 2. 保持 Stream 链简洁</h3>
+<p>如果 Stream 链超过 5 个操作，考虑抽取为方法。</p>
+<pre><code class="language-java">// 不推荐：过长
+list.stream()
+    .filter(...)
+    .map(...)
+    .sorted(...)
+    .filter(...)
+    .map(...)
+    .collect(...);
+
+// 推荐：抽取方法
+list.stream()
+    .filter(this::isValid)
+    .map(this::transform)
+    .collect(Collectors.toList());
+</code></pre>
+<hr>
+<h3>📌 3. 选择合适的终端操作</h3>
+<pre><code class="language-java">// 只需要判断是否存在
+boolean exists = list.stream().anyMatch(predicate); // ✅
+
+// 不要这样做
+long count = list.stream().filter(predicate).count(); // ❌
+boolean exists = count > 0;
+</code></pre>
+<hr>
+<h3>📌 4. 合理使用并行流</h3>
+<pre><code class="language-java">// 适合并行流的情况
+largeList.parallelStream()
+    .map(expensiveOperation)
+    .collect(Collectors.toList());
+
+// 不适合并行流的情况
+smallList.parallelStream() // ❌ 开销大于收益
+    .map(simpleOperation)
+    .collect(Collectors.toList());
+</code></pre>
+<hr>
+<h3>📌 5. 使用专用 Collector</h3>
+<pre><code class="language-java">// 推荐：使用专门的 Collector
+int sum = numbers.stream().collect(Collectors.summingInt(Integer::intValue));
+double avg = numbers.stream().collect(Collectors.averagingInt(Integer::intValue));
+
+// 不推荐：手动 reduce
+int sum = numbers.stream().reduce(0, Integer::sum);
+</code></pre>
+<hr>
+<h2>11. 总结</h2>
+<h3>核心要点</h3>
+<ol>
+<li><strong>Stream 是声明式的数据处理工具</strong>，关注"要什么"而非"怎么做"</li>
+<li><strong>三阶段流程</strong>：创建 → 中间操作（惰性） → 终端操作（触发）</li>
+<li><strong>中间操作</strong>：filter、map、flatMap、sorted、distinct 等</li>
+<li><strong>终端操作</strong>：collect、reduce、forEach、count、find 等</li>
+<li><strong>配合 Lambda 和方法引用</strong>，代码更简洁优雅</li>
+<li><strong>注意线程安全和空指针</strong>，合理使用并行流</li>
+</ol>
+<h3>学习路径回顾</h3>
+<pre><code>Lambda 表达式 → 方法引用 → Stream API → 并行流
+     ↓              ↓            ↓
+  基础语法      语法简化    数据处理核心
+</code></pre>
+<h3>Stream 操作速查表</h3>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>常用操作</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>创建</td>
+<td><code>stream()</code>, <code>of()</code>, <code>iterate()</code>, <code>generate()</code></td>
+</tr>
+<tr>
+<td>过滤</td>
+<td><code>filter()</code>, <code>distinct()</code>, <code>limit()</code>, <code>skip()</code></td>
+</tr>
+<tr>
+<td>转换</td>
+<td><code>map()</code>, <code>flatMap()</code></td>
+</tr>
+<tr>
+<td>排序</td>
+<td><code>sorted()</code></td>
+</tr>
+<tr>
+<td>收集</td>
+<td><code>collect(toList/toSet/toMap/groupingBy)</code></td>
+</tr>
+<tr>
+<td>归约</td>
+<td><code>reduce()</code>, <code>sum()</code>, <code>count()</code>, <code>max()</code>, <code>min()</code></td>
+</tr>
+<tr>
+<td>匹配</td>
+<td><code>anyMatch()</code>, <code>allMatch()</code>, <code>noneMatch()</code></td>
+</tr>
+<tr>
+<td>查找</td>
+<td><code>findFirst()</code>, <code>findAny()</code></td>
+</tr>
+<tr>
+<td>遍历</td>
+<td><code>forEach()</code>, <code>peek()</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>练习题</h2>
+<h3>练习 1：基础操作</h3>
+<pre><code class="language-java">List&#x3C;Integer> numbers = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+
+// 1. 过滤出偶数，转为平方，收集到 List
+// 2. 计算所有奇数的和
+// 3. 找出最大的偶数
+</code></pre>
+<h3>练习 2：字符串处理</h3>
+<pre><code class="language-java">List&#x3C;String> words = Arrays.asList("hello", "world", "java", "stream");
+
+// 1. 将所有单词转为大写，用逗号连接
+// 2. 统计每个单词的长度，收集到 Map
+// 3. 找出最长的单词
+</code></pre>
+<h3>练习 3：对象操作</h3>
+<pre><code class="language-java">List&#x3C;Product> products = Arrays.asList(
+    new Product("Laptop", 999.99, "Electronics"),
+    new Product("Phone", 699.99, "Electronics"),
+    new Product("Book", 19.99, "Education"),
+    new Product("Desk", 299.99, "Furniture")
+);
+
+// 1. 按类别分组，计算每类的平均价格
+// 2. 找出价格高于 500 的产品名称
+// 3. 计算 Electronics 类别的总价
+</code></pre>
+<hr>
+<h2>参考资料</h2>
+<ul>
+<li><a href="https://docs.oracle.com/javase/8/docs/api/java/util/stream/package-summary.html">Oracle 官方文档 - Stream API</a></li>
+<li><a href="https://www.baeldung.com/java-streams-introduction">Baeldung - Java Streams Tutorial</a></li>
+<li><a href="https://dzone.com/articles/learn-java-8-streams">DZone - Java 8 Stream Tutorial</a></li>
+</ul>
+<hr>
+<p><strong>上一步：</strong> <a href="./post-mpou6s96.md">方法引用完全指南</a><br>
+<strong>下一步：</strong> （可选）<a href="#%E2%91%A0-%E5%B9%B6%E8%A1%8C%E6%B5%81parallel-stream">并行流章节</a></p>
+]]></content:encoded>
     </item>
     <item>
       <title>方法引用完全指南</title>
@@ -20,6 +1194,611 @@
       <description>Lambda 表达式的进一步简化</description>
       <pubDate>Thu, 28 May 2026 00:00:00 GMT</pubDate>
       <guid>https://asy424.github.io/my-blog/blog/post-mpou6s96</guid>
+      <content:encoded><![CDATA[<h1>方法引用完全指南</h1>
+<blockquote>
+<p>Lambda 表达式的进一步简化，让代码更加简洁优雅。</p>
+</blockquote>
+<hr>
+<h2>目录</h2>
+<ul>
+<li><a href="#1-%E4%BB%80%E4%B9%88%E6%98%AF%E6%96%B9%E6%B3%95%E5%BC%95%E7%94%A8">1. 什么是方法引用</a></li>
+<li><a href="#2-%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81%E6%96%B9%E6%B3%95%E5%BC%95%E7%94%A8">2. 为什么需要方法引用</a></li>
+<li><a href="#3-%E5%9B%9B%E7%A7%8D%E6%96%B9%E6%B3%95%E5%BC%95%E7%94%A8%E7%B1%BB%E5%9E%8B">3. 四种方法引用类型</a></li>
+<li><a href="#4-%E5%AE%9E%E6%88%98%E5%AF%B9%E6%AF%94lambda-vs-%E6%96%B9%E6%B3%95%E5%BC%95%E7%94%A8">4. 实战对比：Lambda vs 方法引用</a></li>
+<li><a href="#5-%E5%B8%B8%E8%A7%81%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF">5. 常见应用场景</a></li>
+<li><a href="#6-%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9%E4%B8%8E%E9%99%90%E5%88%B6">6. 注意事项与限制</a></li>
+<li><a href="#7-%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5">7. 最佳实践</a></li>
+<li><a href="#8-%E6%80%BB%E7%BB%93">8. 总结</a></li>
+</ul>
+<hr>
+<h2>1. 什么是方法引用</h2>
+<p>方法引用是 Java 8 引入的一种<strong>更简洁的 Lambda 表达式写法</strong>。当 Lambda 表达式仅仅是调用一个已有的方法时，可以使用方法引用来替代。</p>
+<h3>核心思想</h3>
+<pre><code class="language-java">// Lambda 表达式
+name -> System.out.println(name)
+
+// 方法引用（更简洁）
+System.out::println
+</code></pre>
+<h3>本质理解</h3>
+<p>方法引用就是<strong>直接指向已有方法的指针</strong>，不需要写参数和调用逻辑，JVM 会自动匹配方法签名。</p>
+<hr>
+<h2>2. 为什么需要方法引用</h2>
+<h3>优势对比</h3>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>Lambda 表达式</th>
+<th>方法引用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>代码长度</td>
+<td>较短</td>
+<td>更短</td>
+</tr>
+<tr>
+<td>可读性</td>
+<td>好</td>
+<td>更好</td>
+</tr>
+<tr>
+<td>意图表达</td>
+<td>明确</td>
+<td>更明确</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>所有函数式接口</td>
+<td>仅调用已有方法</td>
+</tr>
+</tbody>
+</table>
+<h3>示例对比</h3>
+<pre><code class="language-java">List&#x3C;String> names = Arrays.asList("Alice", "Bob", "Charlie");
+
+// 传统 for-each
+for (String name : names) {
+    System.out.println(name);
+}
+
+// Lambda 表达式
+names.forEach(name -> System.out.println(name));
+
+// 方法引用（最简洁）
+names.forEach(System.out::println);
+</code></pre>
+<p><strong>代码演变：</strong> 5 行 → 1 行 → 1 行（更简洁）✨</p>
+<hr>
+<h2>3. 四种方法引用类型</h2>
+<p>方法引用使用双冒号 <code>::</code> 作为分隔符，共有四种类型：</p>
+<h3>类型总览</h3>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>语法</th>
+<th>示例</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>静态方法引用</td>
+<td><code>Class::staticMethod</code></td>
+<td><code>Integer::parseInt</code></td>
+<td>引用类的静态方法</td>
+</tr>
+<tr>
+<td>实例方法引用（特定对象）</td>
+<td><code>object::instanceMethod</code></td>
+<td><code>System.out::println</code></td>
+<td>引用特定对象的方法</td>
+</tr>
+<tr>
+<td>实例方法引用（任意对象）</td>
+<td><code>Class::instanceMethod</code></td>
+<td><code>String::toUpperCase</code></td>
+<td>引用任意对象的实例方法</td>
+</tr>
+<tr>
+<td>构造方法引用</td>
+<td><code>Class::new</code></td>
+<td><code>User::new</code></td>
+<td>引用构造函数</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h3>① 静态方法引用</h3>
+<p><strong>语法：</strong> <code>ClassName::staticMethodName</code></p>
+<h4>示例 1：字符串转整数</h4>
+<pre><code class="language-java">import java.util.function.Function;
+
+// Lambda 表达式
+Function&#x3C;String, Integer> func1 = s -> Integer.parseInt(s);
+
+// 方法引用
+Function&#x3C;String, Integer> func2 = Integer::parseInt;
+
+System.out.println(func2.apply("123")); // 123
+</code></pre>
+<h4>示例 2：求最大值</h4>
+<pre><code class="language-java">import java.util.function.BinaryOperator;
+
+// Lambda 表达式
+BinaryOperator&#x3C;Integer> max1 = (a, b) -> Integer.max(a, b);
+
+// 方法引用
+BinaryOperator&#x3C;Integer> max2 = Integer::max;
+
+System.out.println(max2.apply(10, 20)); // 20
+</code></pre>
+<h4>示例 3：数学运算</h4>
+<pre><code class="language-java">import java.util.function.DoubleUnaryOperator;
+
+// Lambda 表达式
+DoubleUnaryOperator sqrt1 = x -> Math.sqrt(x);
+
+// 方法引用
+DoubleUnaryOperator sqrt2 = Math::sqrt;
+
+System.out.println(sqrt2.applyAsDouble(16.0)); // 4.0
+</code></pre>
+<hr>
+<h3>② 实例方法引用（特定对象）</h3>
+<p><strong>语法：</strong> <code>objectInstance::instanceMethodName</code></p>
+<h4>示例 1：打印输出</h4>
+<pre><code class="language-java">import java.util.function.Consumer;
+
+// Lambda 表达式
+Consumer&#x3C;String> printer1 = s -> System.out.println(s);
+
+// 方法引用
+Consumer&#x3C;String> printer2 = System.out::println;
+
+printer2.accept("Hello"); // Hello
+</code></pre>
+<h4>示例 2：字符串操作</h4>
+<pre><code class="language-java">import java.util.function.Supplier;
+
+String str = "Hello World";
+
+// Lambda 表达式
+Supplier&#x3C;Integer> length1 = () -> str.length();
+
+// 方法引用
+Supplier&#x3C;Integer> length2 = str::length;
+
+System.out.println(length2.get()); // 11
+</code></pre>
+<h4>示例 3：集合操作</h4>
+<pre><code class="language-java">import java.util.*;
+import java.util.function.Supplier;
+
+List&#x3C;String> list = new ArrayList&#x3C;>();
+
+// Lambda 表达式
+Supplier&#x3C;List&#x3C;String>> factory1 = () -> new ArrayList&#x3C;>();
+
+// 方法引用（注意：这是构造方法引用，见类型④）
+Supplier&#x3C;List&#x3C;String>> factory2 = ArrayList::new;
+</code></pre>
+<hr>
+<h3>③ 实例方法引用（任意对象）</h3>
+<p><strong>语法：</strong> <code>ClassName::instanceMethodName</code></p>
+<p>⚠️ <strong>这是最容易混淆的类型！</strong></p>
+<h4>核心区别</h4>
+<pre><code class="language-java">// 类型②：特定对象 - 已经有一个对象实例
+String str = "hello";
+Function&#x3C;String, String> func = str::toUpperCase; // 固定对 str 操作
+
+// 类型③：任意对象 - 没有具体对象，参数就是调用对象
+Function&#x3C;String, String> func = String::toUpperCase; // 对传入的参数操作
+</code></pre>
+<h4>示例 1：字符串转大写</h4>
+<pre><code class="language-java">import java.util.function.Function;
+import java.util.stream.*;
+
+List&#x3C;String> names = Arrays.asList("alice", "bob", "charlie");
+
+// Lambda 表达式
+List&#x3C;String> upper1 = names.stream()
+    .map(name -> name.toUpperCase())
+    .collect(Collectors.toList());
+
+// 方法引用（类型③）
+List&#x3C;String> upper2 = names.stream()
+    .map(String::toUpperCase)
+    .collect(Collectors.toList());
+
+System.out.println(upper2); // [ALICE, BOB, CHARLIE]
+</code></pre>
+<p><strong>解析：</strong></p>
+<ul>
+<li><code>name -> name.toUpperCase()</code> 中，<code>name</code> 是参数，也是调用 <code>toUpperCase()</code> 的对象</li>
+<li><code>String::toUpperCase</code> 等价于上述 Lambda</li>
+</ul>
+<h4>示例 2：字符串比较</h4>
+<pre><code class="language-java">import java.util.*;
+
+List&#x3C;String> names = Arrays.asList("Charlie", "alice", "Bob");
+
+// Lambda 表达式
+names.sort((s1, s2) -> s1.compareToIgnoreCase(s2));
+
+// 方法引用（类型③）
+names.sort(String::compareToIgnoreCase);
+
+System.out.println(names); // [alice, Bob, Charlie]
+</code></pre>
+<p><strong>解析：</strong></p>
+<ul>
+<li><code>(s1, s2) -> s1.compareToIgnoreCase(s2)</code> 中，第一个参数 <code>s1</code> 是调用对象</li>
+<li><code>String::compareToIgnoreCase</code> 等价于上述 Lambda</li>
+</ul>
+<h4>示例 3：判断是否为空</h4>
+<pre><code class="language-java">import java.util.function.Predicate;
+
+// Lambda 表达式
+Predicate&#x3C;String> isEmpty1 = s -> s.isEmpty();
+
+// 方法引用（类型③）
+Predicate&#x3C;String> isEmpty2 = String::isEmpty;
+
+System.out.println(isEmpty2.test(""));    // true
+System.out.println(isEmpty2.test("abc")); // false
+</code></pre>
+<hr>
+<h3>④ 构造方法引用</h3>
+<p><strong>语法：</strong> <code>ClassName::new</code></p>
+<h4>示例 1：无参构造</h4>
+<pre><code class="language-java">import java.util.function.Supplier;
+
+// Lambda 表达式
+Supplier&#x3C;User> factory1 = () -> new User();
+
+// 方法引用
+Supplier&#x3C;User> factory2 = User::new;
+
+User user = factory2.get();
+</code></pre>
+<h4>示例 2：单参数构造</h4>
+<pre><code class="language-java">import java.util.function.Function;
+
+// Lambda 表达式
+Function&#x3C;String, User> factory1 = name -> new User(name);
+
+// 方法引用
+Function&#x3C;String, User> factory2 = User::new;
+
+User user = factory2.apply("Alice");
+</code></pre>
+<h4>示例 3：多参数构造</h4>
+<pre><code class="language-java">import java.util.function.BiFunction;
+
+// Lambda 表达式
+BiFunction&#x3C;String, Integer, User> factory1 = (name, age) -> new User(name, age);
+
+// 方法引用
+BiFunction&#x3C;String, Integer, User> factory2 = User::new;
+
+User user = factory2.apply("Alice", 25);
+</code></pre>
+<h4>示例 4：数组构造</h4>
+<pre><code class="language-java">import java.util.function.IntFunction;
+
+// Lambda 表达式
+IntFunction&#x3C;int[]> arrayFactory1 = size -> new int[size];
+
+// 方法引用
+IntFunction&#x3C;int[]> arrayFactory2 = int[]::new;
+
+int[] array = arrayFactory2.apply(10); // 创建长度为10的数组
+</code></pre>
+<hr>
+<h2>4. 实战对比：Lambda vs 方法引用</h2>
+<h3>场景 1：Stream 流操作</h3>
+<pre><code class="language-java">List&#x3C;String> names = Arrays.asList("alice", "bob", "charlie", "david");
+
+// 过滤 + 转换 + 收集
+List&#x3C;String> result = names.stream()
+    .filter(name -> name.length() > 3)           // Lambda
+    .map(name -> name.toUpperCase())              // Lambda
+    .sorted((s1, s2) -> s1.compareTo(s2))        // Lambda
+    .collect(Collectors.toList());
+
+// 使用方法引用优化
+List&#x3C;String> result2 = names.stream()
+    .filter(((Predicate&#x3C;String>) String::isEmpty).negate()) // 复杂，不推荐
+    .map(String::toUpperCase)                     // ✅ 方法引用
+    .sorted(String::compareTo)                    // ✅ 方法引用
+    .collect(Collectors.toList());
+</code></pre>
+<p><strong>建议：</strong> 简单的转换用方法引用，复杂的逻辑用 Lambda。</p>
+<hr>
+<h3>场景 2：线程创建</h3>
+<pre><code class="language-java">// Lambda 表达式
+new Thread(() -> System.out.println("线程执行")).start();
+
+// 方法引用
+new Thread(System.out::println).start(); // ❌ 错误！println 需要参数
+
+// 正确的方式
+Runnable task = System.out::println; // 需要配合 Consumer 使用
+</code></pre>
+<hr>
+<h3>场景 3：集合排序</h3>
+<pre><code class="language-java">List&#x3C;User> users = Arrays.asList(
+    new User("Alice", 25),
+    new User("Bob", 20),
+    new User("Charlie", 30)
+);
+
+// Lambda 表达式
+users.sort((u1, u2) -> u1.getAge().compareTo(u2.getAge()));
+
+// 方法引用（配合 Comparator.comparing）
+users.sort(Comparator.comparing(User::getAge));
+
+// 降序排列
+users.sort(Comparator.comparing(User::getAge).reversed());
+</code></pre>
+<hr>
+<h3>场景 4：Optional 处理</h3>
+<pre><code class="language-java">Optional&#x3C;String> optional = Optional.of("Hello");
+
+// Lambda 表达式
+optional.ifPresent(s -> System.out.println(s));
+
+// 方法引用
+optional.ifPresent(System.out::println);
+</code></pre>
+<hr>
+<h2>5. 常见应用场景</h2>
+<h3>① Stream API 中的方法引用</h3>
+<pre><code class="language-java">List&#x3C;String> names = Arrays.asList("alice", "bob", "charlie");
+
+// map 操作
+names.stream()
+    .map(String::toUpperCase)
+    .forEach(System.out::println);
+
+// filter 操作（结合 Predicate）
+names.stream()
+    .filter(((Predicate&#x3C;String>) String::isEmpty).negate())
+    .forEach(System.out::println);
+
+// reduce 操作
+List&#x3C;Integer> numbers = Arrays.asList(1, 2, 3, 4, 5);
+int sum = numbers.stream()
+    .reduce(0, Integer::sum);
+</code></pre>
+<hr>
+<h3>② 函数式接口赋值</h3>
+<pre><code class="language-java">// Consumer
+Consumer&#x3C;String> printer = System.out::println;
+
+// Function
+Function&#x3C;String, Integer> parser = Integer::parseInt;
+
+// Supplier
+Supplier&#x3C;Double> random = Math::random;
+
+// Predicate
+Predicate&#x3C;String> isEmpty = String::isEmpty;
+</code></pre>
+<hr>
+<h3>③ 工厂模式</h3>
+<pre><code class="language-java">// 使用 Supplier 创建对象
+Supplier&#x3C;List&#x3C;String>> listFactory = ArrayList::new;
+List&#x3C;String> list = listFactory.get();
+
+// 使用 Function 创建带参数的对象
+Function&#x3C;String, User> userFactory = User::new;
+User user = userFactory.apply("Alice");
+</code></pre>
+<hr>
+<h3>④ 事件监听器</h3>
+<pre><code class="language-java">// Swing 按钮点击事件
+button.addActionListener(e -> System.out.println("Clicked"));
+
+// 如果有一个处理方法
+public void handleClick(ActionEvent e) {
+    System.out.println("Clicked");
+}
+
+// 可以改为
+button.addActionListener(this::handleClick);
+</code></pre>
+<hr>
+<h2>6. 注意事项与限制</h2>
+<h3>⚠️ 1. 方法签名必须匹配</h3>
+<p>方法引用的方法签名必须与函数式接口的抽象方法签名兼容。</p>
+<pre><code class="language-java">// ❌ 编译错误：parseInt 返回 int，但 Consumer 要求 void
+Consumer&#x3C;String> consumer = Integer::parseInt;
+
+// ✅ 正确：Function 接受 String 返回 Integer
+Function&#x3C;String, Integer> function = Integer::parseInt;
+</code></pre>
+<hr>
+<h3>⚠️ 2. 不能传递参数</h3>
+<p>方法引用不能像 Lambda 那样传递额外参数。</p>
+<pre><code class="language-java">// Lambda 可以这样做
+Function&#x3C;String, String> func = s -> s.substring(1, 3);
+
+// 方法引用无法直接实现 substring(1, 3)
+// 需要自定义方法
+public static String extract(String s) {
+    return s.substring(1, 3);
+}
+Function&#x3C;String, String> func = MyClass::extract;
+</code></pre>
+<hr>
+<h3>⚠️ 3. 重载方法的歧义</h3>
+<p>当有多个重载方法时，编译器可能无法确定使用哪个方法。</p>
+<pre><code class="language-java">// PrintStream 有多个 println 重载
+// println(), println(int), println(String)...
+
+// ❌ 可能产生歧义
+Consumer&#x3C;?> consumer = System.out::println;
+
+// ✅ 指定泛型类型
+Consumer&#x3C;String> consumer = System.out::println;
+</code></pre>
+<hr>
+<h3>⚠️ 4. 异常处理</h3>
+<p>如果被引用的方法抛出受检异常，函数式接口必须声明该异常。</p>
+<pre><code class="language-java">// ❌ 编译错误：parseInt 可能抛出 NumberFormatException
+Function&#x3C;String, Integer> func = Integer::parseInt;
+
+// ✅ 在调用处处理异常
+try {
+    Integer result = func.apply("abc");
+} catch (NumberFormatException e) {
+    // 处理异常
+}
+</code></pre>
+<hr>
+<h3>⚠️ 5. 可读性权衡</h3>
+<p>不是所有情况都适合使用方法引用。</p>
+<pre><code class="language-java">// ✅ 推荐：简单清晰
+names.forEach(System.out::println);
+
+// ❌ 不推荐：过于复杂，降低可读性
+list.stream()
+    .filter(((Predicate&#x3C;String>) String::isEmpty).negate())
+    .map(String::trim)
+    .forEach(System.out::println);
+
+// ✅ 改进：使用 Lambda 或抽取方法
+list.stream()
+    .filter(s -> !s.isEmpty())
+    .map(String::trim)
+    .forEach(System.out::println);
+</code></pre>
+<hr>
+<h2>7. 最佳实践</h2>
+<h3>📌 1. 优先使用方法引用的场景</h3>
+<p>✅ <strong>方法名能清晰表达意图</strong></p>
+<pre><code class="language-java">names.forEach(System.out::println);
+numbers.stream().reduce(0, Integer::sum);
+</code></pre>
+<p>✅ <strong>配合 Stream API 的链式调用</strong></p>
+<pre><code class="language-java">names.stream()
+    .map(String::toUpperCase)
+    .sorted(String::compareTo)
+    .collect(Collectors.toList());
+</code></pre>
+<p>✅ <strong>工厂模式</strong></p>
+<pre><code class="language-java">Supplier&#x3C;List&#x3C;String>> factory = ArrayList::new;
+</code></pre>
+<hr>
+<h3>📌 2. 避免使用方法引用的场景</h3>
+<p>❌ <strong>方法名不能清晰表达意图</strong></p>
+<pre><code class="language-java">// 不清晰
+data.process(MyClass::handle);
+
+// 更清晰
+data.process(item -> validateAndTransform(item));
+</code></pre>
+<p>❌ <strong>需要额外逻辑</strong></p>
+<pre><code class="language-java">// Lambda 更合适
+names.forEach(name -> {
+    if (name != null &#x26;&#x26; !name.isEmpty()) {
+        System.out.println(name.toUpperCase());
+    }
+});
+</code></pre>
+<p>❌ <strong>方法引用过长或嵌套</strong></p>
+<pre><code class="language-java">// 不推荐
+obj.getMethod1().getMethod2()::execute
+
+// 推荐：抽取为局部变量
+var helper = obj.getMethod1().getMethod2();
+helper::execute
+</code></pre>
+<hr>
+<h3>📌 3. 结合 IDE 提示</h3>
+<p>现代 IDE（如 IntelliJ IDEA）会自动提示可以将 Lambda 转换为方法引用。</p>
+<pre><code class="language-java">// IDEA 会提示：Can be replaced with method reference
+name -> System.out.println(name)
+
+// 按 Alt+Enter 自动转换为
+System.out::println
+</code></pre>
+<hr>
+<h3>📌 4. 命名规范</h3>
+<p>如果使用自定义方法引用，确保方法名符合命名规范。</p>
+<pre><code class="language-java">// ✅ 好名字
+users.filter(User::isActive);
+names.map(NameUtils::capitalize);
+
+// ❌ 坏名字
+users.filter(User::check1);
+names.map(Utils::process);
+</code></pre>
+<hr>
+<h3>📌 5. 性能考虑</h3>
+<p>方法引用和 Lambda 的性能基本相同，JVM 会对两者进行相同的优化。选择的标准应该是<strong>可读性</strong>而非性能。</p>
+<hr>
+<h2>8. 总结</h2>
+<h3>核心要点</h3>
+<ol>
+<li><strong>方法引用是 Lambda 的简化形式</strong>，适用于只调用已有方法的场景</li>
+<li><strong>四种类型</strong>：静态方法、特定对象实例方法、任意对象实例方法、构造方法</li>
+<li><strong>使用 <code>::</code> 运算符</strong>，语法简洁优雅</li>
+<li><strong>优先用于 Stream API</strong> 和函数式接口赋值</li>
+<li><strong>可读性第一</strong>，不要为了使用方法引用而牺牲代码清晰度</li>
+</ol>
+<h3>学习路径回顾</h3>
+<pre><code>Lambda 表达式 → 方法引用 → Stream API → 并行流
+     ↓              ↓
+  基础语法      语法简化
+</code></pre>
+<h3>方法选择决策树</h3>
+<pre><code>Lambda 是否只调用一个已有方法？
+├─ 是 → 能否用方法引用清晰表达？
+│       ├─ 是 → 使用方法引用 ✅
+│       └─ 否 → 使用 Lambda
+└─ 否 → 使用 Lambda
+</code></pre>
+<hr>
+<h2>练习题</h2>
+<p>尝试将以下 Lambda 表达式改写为方法引用：</p>
+<h3>练习 1：静态方法引用</h3>
+<pre><code class="language-java">Function&#x3C;Double, Double> sqrt = x -> Math.sqrt(x);
+</code></pre>
+<h3>练习 2：实例方法引用（特定对象）</h3>
+<pre><code class="language-java">String str = "Hello";
+Supplier&#x3C;Integer> length = () -> str.length();
+</code></pre>
+<h3>练习 3：实例方法引用（任意对象）</h3>
+<pre><code class="language-java">Function&#x3C;String, String> trimmer = s -> s.trim();
+</code></pre>
+<h3>练习 4：构造方法引用</h3>
+<pre><code class="language-java">Supplier&#x3C;ArrayList&#x3C;String>> factory = () -> new ArrayList&#x3C;>();
+</code></pre>
+<h3>练习 5：综合应用</h3>
+<pre><code class="language-java">List&#x3C;String> names = Arrays.asList("alice", "bob", "charlie");
+
+// 将以下 Lambda 改为方法引用
+names.stream()
+    .map(name -> name.toUpperCase())
+    .forEach(name -> System.out.println(name));
+</code></pre>
+<hr>
+<h2>参考资料</h2>
+<ul>
+<li><a href="https://docs.oracle.com/javase/tutorial/java/javaOO/methodreferences.html">Oracle 官方文档 - Method References</a></li>
+<li><a href="https://www.baeldung.com/java-method-references">Java 8 Method References Tutorial</a></li>
+</ul>
+<hr>
+<p><strong>上一步：</strong> <a href="./lambda.md">Lambda 表达式完全指南</a><br>
+<strong>下一步：</strong> <a href="./stream-api.md">Stream API 完全指南</a></p>
+]]></content:encoded>
     </item>
     <item>
       <title>Lambda表达式完全指南</title>
@@ -27,6 +1806,547 @@
       <description></description>
       <pubDate>Thu, 28 May 2026 00:00:00 GMT</pubDate>
       <guid>https://asy424.github.io/my-blog/blog/lambda</guid>
+      <content:encoded><![CDATA[<h1>Lambda 表达式完全指南</h1>
+<blockquote>
+<p>Java 8 引入的函数式编程核心特性，让代码更简洁、更具表达力。</p>
+</blockquote>
+<hr>
+<h2>目录</h2>
+<ul>
+<li><a href="#1-%E4%BB%80%E4%B9%88%E6%98%AF-lambda-%E8%A1%A8%E8%BE%BE%E5%BC%8F">1. 什么是 Lambda 表达式</a></li>
+<li><a href="#2-%E5%9F%BA%E6%9C%AC%E8%AF%AD%E6%B3%95%E7%BB%93%E6%9E%84">2. 基本语法结构</a></li>
+<li><a href="#3-%E4%BD%BF%E7%94%A8%E5%89%8D%E6%8F%90%E5%87%BD%E6%95%B0%E5%BC%8F%E6%8E%A5%E5%8F%A3">3. 使用前提：函数式接口</a></li>
+<li><a href="#4-%E5%AE%9E%E6%88%98%E5%AF%B9%E6%AF%94%E4%BC%A0%E7%BB%9F%E5%86%99%E6%B3%95-vs-lambda">4. 实战对比：传统写法 vs Lambda</a></li>
+<li><a href="#5-%E5%B8%B8%E8%A7%81%E5%87%BD%E6%95%B0%E5%BC%8F%E6%8E%A5%E5%8F%A3%E8%AF%A6%E8%A7%A3">5. 常见函数式接口详解</a></li>
+<li><a href="#6-lambda-%E7%9A%84%E6%A0%B8%E5%BF%83%E4%BC%98%E5%8A%BF">6. Lambda 的核心优势</a></li>
+<li><a href="#7-%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9%E4%B8%8E%E9%99%B7%E9%98%B1">7. 注意事项与陷阱</a></li>
+<li><a href="#8-%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5">8. 最佳实践</a></li>
+</ul>
+<hr>
+<h2>1. 什么是 Lambda 表达式</h2>
+<p>Lambda 表达式是一种<strong>匿名函数</strong>的简洁写法，它允许你将函数作为参数传递，或者将代码块作为数据处理。</p>
+<h3>核心思想</h3>
+<ul>
+<li><strong>用箭头 <code>-></code> 将参数和方法体连接起来</strong></li>
+<li><strong>减少样板代码，关注核心逻辑</strong></li>
+<li><strong>为函数式编程和 Stream 流奠定基础</strong></li>
+</ul>
+<h3>本质理解</h3>
+<pre><code class="language-java">// 传统思维：创建一个类，实现接口，重写方法
+// Lambda 思维：直接写出方法的实现逻辑
+</code></pre>
+<hr>
+<h2>2. 基本语法结构</h2>
+<h3>通用格式</h3>
+<pre><code class="language-java">(参数列表) -> { 方法体 }
+</code></pre>
+<h3>四种常见形式</h3>
+<h4>① 无参数，单行方法体</h4>
+<pre><code class="language-java">() -> System.out.println("Hello Lambda")
+</code></pre>
+<p><strong>示例：</strong></p>
+<pre><code class="language-java">Runnable r = () -> System.out.println("线程执行");
+new Thread(r).start();
+</code></pre>
+<hr>
+<h4>② 单个参数（括号可省略）</h4>
+<pre><code class="language-java">name -> System.out.println(name)
+// 等价于
+(name) -> System.out.println(name)
+</code></pre>
+<p><strong>示例：</strong></p>
+<pre><code class="language-java">List&#x3C;String> names = Arrays.asList("Alice", "Bob", "Charlie");
+names.forEach(name -> System.out.println(name));
+</code></pre>
+<hr>
+<h4>③ 多个参数</h4>
+<pre><code class="language-java">(a, b) -> a + b
+</code></pre>
+<p><strong>示例：</strong></p>
+<pre><code class="language-java">BinaryOperator&#x3C;Integer> add = (a, b) -> a + b;
+System.out.println(add.apply(3, 5)); // 输出: 8
+</code></pre>
+<hr>
+<h4>④ 多行方法体（需要大括号和 return）</h4>
+<pre><code class="language-java">(x, y) -> {
+    int sum = x + y;
+    System.out.println("计算结果: " + sum);
+    return sum;
+}
+</code></pre>
+<p><strong>示例：</strong></p>
+<pre><code class="language-java">Comparator&#x3C;String> comparator = (s1, s2) -> {
+    if (s1 == null) return -1;
+    if (s2 == null) return 1;
+    return s1.compareTo(s2);
+};
+</code></pre>
+<hr>
+<h3>语法简化规则</h3>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>是否可以省略</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>单个参数</td>
+<td>✅ 可省略括号</td>
+<td><code>x -> x * 2</code></td>
+</tr>
+<tr>
+<td>多个参数</td>
+<td>❌ 必须保留括号</td>
+<td><code>(x, y) -> x + y</code></td>
+</tr>
+<tr>
+<td>无参数</td>
+<td>❌ 必须保留空括号</td>
+<td><code>() -> System.out.println()</code></td>
+</tr>
+<tr>
+<td>单行方法体</td>
+<td>✅ 可省略大括号和 return</td>
+<td><code>x -> x + 1</code></td>
+</tr>
+<tr>
+<td>多行方法体</td>
+<td>❌ 必须保留大括号和 return</td>
+<td><code>x -> { return x + 1; }</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>3. 使用前提：函数式接口</h2>
+<p>Lambda 表达式<strong>只能用于函数式接口</strong>（Functional Interface）。</p>
+<h3>什么是函数式接口？</h3>
+<ul>
+<li><strong>只有一个抽象方法</strong>的接口</li>
+<li>可以有多个默认方法（default）和静态方法（static）</li>
+<li>通常使用 <code>@FunctionalInterface</code> 注解标注（编译时检查）</li>
+</ul>
+<h3>示例：自定义函数式接口</h3>
+<pre><code class="language-java">@FunctionalInterface
+public interface Calculator {
+    int calculate(int a, int b);
+    
+    // 默认方法不影响函数式接口的定义
+    default String getDescription() {
+        return "这是一个计算器";
+    }
+}
+</code></pre>
+<p><strong>使用：</strong></p>
+<pre><code class="language-java">Calculator add = (a, b) -> a + b;
+Calculator multiply = (a, b) -> a * b;
+
+System.out.println(add.calculate(3, 5));      // 8
+System.out.println(multiply.calculate(3, 5)); // 15
+</code></pre>
+<hr>
+<h2>4. 实战对比：传统写法 vs Lambda</h2>
+<h3>示例 1：线程创建</h3>
+<h4>传统写法（匿名内部类）</h4>
+<pre><code class="language-java">new Thread(new Runnable() {
+    @Override
+    public void run() {
+        System.out.println("线程执行中...");
+    }
+}).start();
+</code></pre>
+<h4>Lambda 写法</h4>
+<pre><code class="language-java">new Thread(() -> System.out.println("线程执行中...")).start();
+</code></pre>
+<p><strong>代码行数：从 5 行减少到 1 行</strong> ✨</p>
+<hr>
+<h3>示例 2：集合排序</h3>
+<h4>传统写法</h4>
+<pre><code class="language-java">List&#x3C;String> names = Arrays.asList("Alice", "Bob", "Charlie");
+
+Collections.sort(names, new Comparator&#x3C;String>() {
+    @Override
+    public int compare(String o1, String o2) {
+        return o1.compareTo(o2);
+    }
+});
+</code></pre>
+<h4>Lambda 写法</h4>
+<pre><code class="language-java">names.sort((o1, o2) -> o1.compareTo(o2));
+</code></pre>
+<p><strong>更简洁的写法（配合方法引用）：</strong></p>
+<pre><code class="language-java">names.sort(String::compareTo);
+</code></pre>
+<hr>
+<h3>示例 3：事件监听器</h3>
+<h4>传统写法</h4>
+<pre><code class="language-java">button.addActionListener(new ActionListener() {
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        System.out.println("按钮被点击");
+    }
+});
+</code></pre>
+<h4>Lambda 写法</h4>
+<pre><code class="language-java">button.addActionListener(e -> System.out.println("按钮被点击"));
+</code></pre>
+<hr>
+<h3>示例 4：集合遍历</h3>
+<h4>传统 for-each 循环</h4>
+<pre><code class="language-java">List&#x3C;String> names = Arrays.asList("Alice", "Bob", "Charlie");
+for (String name : names) {
+    System.out.println(name);
+}
+</code></pre>
+<h4>Lambda + forEach</h4>
+<pre><code class="language-java">names.forEach(name -> System.out.println(name));
+</code></pre>
+<p><strong>更简洁的写法：</strong></p>
+<pre><code class="language-java">names.forEach(System.out::println);
+</code></pre>
+<hr>
+<h2>5. 常见函数式接口详解</h2>
+<p>Java 8 在 <code>java.util.function</code> 包中提供了常用的函数式接口。</p>
+<h3>核心接口总览</h3>
+<table>
+<thead>
+<tr>
+<th>接口</th>
+<th>方法签名</th>
+<th>用途</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Runnable</code></td>
+<td><code>void run()</code></td>
+<td>无参无返回值</td>
+<td>线程任务</td>
+</tr>
+<tr>
+<td><code>Consumer&#x3C;T></code></td>
+<td><code>void accept(T t)</code></td>
+<td>有参无返回值</td>
+<td>打印、保存</td>
+</tr>
+<tr>
+<td><code>Supplier&#x3C;T></code></td>
+<td><code>T get()</code></td>
+<td>无参有返回值</td>
+<td>工厂模式</td>
+</tr>
+<tr>
+<td><code>Function&#x3C;T,R></code></td>
+<td><code>R apply(T t)</code></td>
+<td>有参有返回值</td>
+<td>数据转换</td>
+</tr>
+<tr>
+<td><code>Predicate&#x3C;T></code></td>
+<td><code>boolean test(T t)</code></td>
+<td>有参返回布尔值</td>
+<td>条件过滤</td>
+</tr>
+<tr>
+<td><code>UnaryOperator&#x3C;T></code></td>
+<td><code>T apply(T t)</code></td>
+<td>同类型输入输出</td>
+<td>数值运算</td>
+</tr>
+<tr>
+<td><code>BinaryOperator&#x3C;T></code></td>
+<td><code>T apply(T t1, T t2)</code></td>
+<td>两个同类型参数</td>
+<td>加法、乘法</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h3>① Consumer - 消费者</h3>
+<p><strong>特点：</strong> 接收一个参数，不返回结果（消费掉）</p>
+<pre><code class="language-java">import java.util.function.Consumer;
+
+// 打印字符串
+Consumer&#x3C;String> printer = s -> System.out.println(s);
+printer.accept("Hello"); // 输出: Hello
+
+// 链式调用
+Consumer&#x3C;String> step1 = s -> System.out.println("步骤1: " + s);
+Consumer&#x3C;String> step2 = s -> System.out.println("步骤2: " + s);
+step1.andThen(step2).accept("处理数据");
+</code></pre>
+<p><strong>实际应用场景：</strong></p>
+<pre><code class="language-java">List&#x3C;String> names = Arrays.asList("Alice", "Bob", "Charlie");
+names.forEach(name -> System.out.println(name));
+</code></pre>
+<hr>
+<h3>② Supplier - 供应者</h3>
+<p><strong>特点：</strong> 不接收参数，返回一个结果（生产数据）</p>
+<pre><code class="language-java">import java.util.function.Supplier;
+
+// 生成随机数
+Supplier&#x3C;Double> randomSupplier = () -> Math.random();
+System.out.println(randomSupplier.get()); // 0.123456...
+
+// 工厂模式
+Supplier&#x3C;User> userFactory = () -> new User("admin", "123456");
+User user = userFactory.get();
+</code></pre>
+<p><strong>实际应用场景：</strong></p>
+<pre><code class="language-java">// Optional 中使用
+Optional&#x3C;String> optional = Optional.empty();
+String result = optional.orElseGet(() -> "默认值");
+</code></pre>
+<hr>
+<h3>③ Function&#x3C;T, R> - 函数</h3>
+<p><strong>特点：</strong> 接收一个参数，返回一个结果（类型可以不同）</p>
+<pre><code class="language-java">import java.util.function.Function;
+
+// 字符串转长度
+Function&#x3C;String, Integer> lengthFunc = s -> s.length();
+System.out.println(lengthFunc.apply("Hello")); // 5
+
+// 链式调用
+Function&#x3C;String, String> toUpper = s -> s.toUpperCase();
+Function&#x3C;String, String> addPrefix = s -> "Result: " + s;
+
+String result = toUpper.andThen(addPrefix).apply("hello");
+// 输出: Result: HELLO
+</code></pre>
+<p><strong>实际应用场景：</strong></p>
+<pre><code class="language-java">// Stream map 操作
+List&#x3C;String> names = Arrays.asList("alice", "bob", "charlie");
+List&#x3C;String> upperNames = names.stream()
+    .map(name -> name.toUpperCase())
+    .collect(Collectors.toList());
+</code></pre>
+<hr>
+<h3>④ Predicate - 断言</h3>
+<p><strong>特点：</strong> 接收一个参数，返回布尔值（判断条件）</p>
+<pre><code class="language-java">import java.util.function.Predicate;
+
+// 判断年龄是否大于18
+Predicate&#x3C;Integer> isAdult = age -> age > 18;
+System.out.println(isAdult.test(20)); // true
+System.out.println(isAdult.test(15)); // false
+
+// 组合条件
+Predicate&#x3C;Integer> isTeenager = age -> age >= 13 &#x26;&#x26; age &#x3C;= 19;
+Predicate&#x3C;Integer> isNotChild = isAdult.or(isTeenager.negate());
+</code></pre>
+<p><strong>实际应用场景：</strong></p>
+<pre><code class="language-java">// Stream filter 操作
+List&#x3C;User> users = Arrays.asList(
+    new User("Alice", 25),
+    new User("Bob", 17),
+    new User("Charlie", 30)
+);
+
+List&#x3C;User> adults = users.stream()
+    .filter(user -> user.getAge() > 18)
+    .collect(Collectors.toList());
+</code></pre>
+<hr>
+<h3>⑤ UnaryOperator - 一元运算符</h3>
+<p><strong>特点：</strong> Function 的特化版本，输入和输出类型相同</p>
+<pre><code class="language-java">import java.util.function.UnaryOperator;
+
+// 数值加倍
+UnaryOperator&#x3C;Integer> doubleValue = x -> x * 2;
+System.out.println(doubleValue.apply(5)); // 10
+
+// 字符串反转
+UnaryOperator&#x3C;String> reverse = s -> new StringBuilder(s).reverse().toString();
+System.out.println(reverse.apply("hello")); // olleh
+</code></pre>
+<hr>
+<h3>⑥ BinaryOperator - 二元运算符</h3>
+<p><strong>特点：</strong> 接收两个同类型参数，返回同类型结果</p>
+<pre><code class="language-java">import java.util.function.BinaryOperator;
+
+// 加法
+BinaryOperator&#x3C;Integer> add = (a, b) -> a + b;
+System.out.println(add.apply(3, 5)); // 8
+
+// 求最大值
+BinaryOperator&#x3C;Integer> max = Integer::max;
+System.out.println(max.apply(10, 20)); // 20
+</code></pre>
+<p><strong>实际应用场景：</strong></p>
+<pre><code class="language-java">// Stream reduce 操作
+List&#x3C;Integer> numbers = Arrays.asList(1, 2, 3, 4, 5);
+int sum = numbers.stream()
+    .reduce(0, (a, b) -> a + b);
+System.out.println(sum); // 15
+</code></pre>
+<hr>
+<h2>6. Lambda 的核心优势</h2>
+<h3>✅ 1. 代码简洁</h3>
+<p>减少样板代码，从平均 5-7 行减少到 1 行。</p>
+<h3>✅ 2. 可读性强</h3>
+<p>关注核心逻辑，而不是类的结构。</p>
+<h3>✅ 3. 支持函数式编程</h3>
+<ul>
+<li>函数可以作为参数传递</li>
+<li>函数可以作为返回值</li>
+<li>支持高阶函数</li>
+</ul>
+<h3>✅ 4. 便于并行处理</h3>
+<p>为 Stream API 和并行计算奠定基础。</p>
+<h3>✅ 5. 延迟执行</h3>
+<p>Lambda 表达式在调用时才执行，支持惰性求值。</p>
+<hr>
+<h2>7. 注意事项与陷阱</h2>
+<h3>⚠️ 1. 局部变量必须是 final 或 effectively final</h3>
+<pre><code class="language-java">int x = 10;
+// x = 20; // 如果取消注释会编译错误
+
+Runnable r = () -> System.out.println(x); // ✅
+</code></pre>
+<p><strong>原因：</strong> Lambda 可能在线程中异步执行，捕获的变量必须是不可变的。</p>
+<hr>
+<h3>⚠️ 2. 不能修改外部变量</h3>
+<pre><code class="language-java">int count = 0;
+List&#x3C;String> list = Arrays.asList("a", "b", "c");
+
+// list.forEach(item -> count++); // ❌ 编译错误
+</code></pre>
+<p><strong>解决方案：</strong> 使用原子类或数组</p>
+<pre><code class="language-java">AtomicInteger count = new AtomicInteger(0);
+list.forEach(item -> count.incrementAndGet());
+</code></pre>
+<hr>
+<h3>⚠️ 3. this 指向问题</h3>
+<pre><code class="language-java">public class LambdaDemo {
+    private String name = "外部类";
+    
+    public void test() {
+        Runnable r = () -> {
+            System.out.println(this.name); // 指向外部类，不是 Runnable
+        };
+        r.run();
+    }
+}
+</code></pre>
+<p><strong>注意：</strong> Lambda 中的 <code>this</code> 指向** enclosing class**（外部类），而不是 Lambda 本身。</p>
+<hr>
+<h3>⚠️ 4. 异常处理</h3>
+<p>Lambda 表达式<strong>不能抛出受检异常</strong>（Checked Exception），除非接口方法声明了该异常。</p>
+<pre><code class="language-java">// ❌ 编译错误
+Function&#x3C;String, Integer> func = s -> Integer.parseInt(s);
+
+// ✅ 正确做法
+Function&#x3C;String, Integer> func = s -> {
+    try {
+        return Integer.parseInt(s);
+    } catch (NumberFormatException e) {
+        return 0;
+    }
+};
+</code></pre>
+<hr>
+<h3>⚠️ 5. 性能考虑</h3>
+<ul>
+<li>Lambda 首次调用时有轻微的性能开销（JVM 优化）</li>
+<li>避免在循环中频繁创建 Lambda</li>
+<li>对于简单操作，Lambda 性能优于匿名内部类</li>
+</ul>
+<hr>
+<h2>8. 最佳实践</h2>
+<h3>📌 1. 保持 Lambda 简洁</h3>
+<p><strong>推荐：</strong></p>
+<pre><code class="language-java">names.forEach(name -> System.out.println(name));
+</code></pre>
+<p><strong>不推荐：</strong></p>
+<pre><code class="language-java">names.forEach(name -> {
+    if (name != null &#x26;&#x26; !name.isEmpty()) {
+        System.out.println(name.toUpperCase());
+    }
+});
+</code></pre>
+<p><strong>改进：</strong> 抽取为方法</p>
+<pre><code class="language-java">names.forEach(this::printNameIfValid);
+
+private void printNameIfValid(String name) {
+    if (name != null &#x26;&#x26; !name.isEmpty()) {
+        System.out.println(name.toUpperCase());
+    }
+}
+</code></pre>
+<hr>
+<h3>📌 2. 优先使用方法引用</h3>
+<pre><code class="language-java">// Lambda
+names.forEach(name -> System.out.println(name));
+
+// 方法引用（更简洁）
+names.forEach(System.out::println);
+</code></pre>
+<hr>
+<h3>📌 3. 选择合适的函数式接口</h3>
+<pre><code class="language-java">// ❌ 不推荐：使用 Function 但忽略返回值
+Function&#x3C;String, Void> func = s -> {
+    System.out.println(s);
+    return null;
+};
+
+// ✅ 推荐：使用 Consumer
+Consumer&#x3C;String> consumer = s -> System.out.println(s);
+</code></pre>
+<hr>
+<h3>📌 4. 避免 Lambda 过长</h3>
+<p>如果 Lambda 超过 3 行，考虑抽取为独立方法。</p>
+<hr>
+<h3>📌 5. 利用 IDE 提示</h3>
+<p>现代 IDE（如 IntelliJ IDEA）会自动提示可以将匿名内部类转换为 Lambda。</p>
+<hr>
+<h2>总结</h2>
+<p>Lambda 表达式是 Java 函数式编程的基石，掌握它能够：</p>
+<ol>
+<li><strong>写出更简洁的代码</strong></li>
+<li><strong>更好地理解 Stream API</strong></li>
+<li><strong>提升代码的可读性和可维护性</strong></li>
+</ol>
+<h3>学习路径建议</h3>
+<pre><code>Lambda 表达式 → 方法引用 → Stream API → 并行流
+</code></pre>
+<hr>
+<h2>练习题</h2>
+<p>尝试将以下代码改写为 Lambda 表达式：</p>
+<h3>练习 1：实现计算器接口</h3>
+<pre><code class="language-java">interface Calculator {
+    int operate(int a, int b);
+}
+
+// 传统写法
+Calculator add = new Calculator() {
+    @Override
+    public int operate(int a, int b) {
+        return a + b;
+    }
+};
+</code></pre>
+<h3>练习 2：过滤集合</h3>
+<pre><code class="language-java">List&#x3C;Integer> numbers = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+
+// 使用 Predicate 过滤出偶数
+</code></pre>
+<h3>练习 3：转换集合</h3>
+<pre><code class="language-java">List&#x3C;String> names = Arrays.asList("alice", "bob", "charlie");
+
+// 使用 Function 将所有名字转为大写
+</code></pre>
+<hr>
+<h2>参考资料</h2>
+<ul>
+<li><a href="https://docs.oracle.com/javase/tutorial/java/javaOO/lambdaexpressions.html">Oracle 官方文档 - Lambda Expressions</a></li>
+<li><a href="https://docs.oracle.com/javase/8/docs/api/java/util/function/package-summary.html">Java 8 Function Package</a></li>
+</ul>
+<hr>
+<p><strong>下一步：</strong> <a href="./post-mpou6s96.md">方法引用完全指南</a></p>
+]]></content:encoded>
     </item>
     <item>
       <title>Windows 程序查找与环境变量配置完全指南</title>
@@ -34,6 +2354,775 @@
       <description>Windows 下查找程序安装路径和配置环境变量的完整指南，涵盖包管理器、注册表查询、PATH 配置等多种方法。</description>
       <pubDate>Sun, 24 May 2026 00:00:00 GMT</pubDate>
       <guid>https://asy424.github.io/my-blog/blog/Windows_Program_Search_and_Environment_Variable_Guide</guid>
+      <content:encoded><![CDATA[<h1>Windows 程序查找与环境变量配置完全指南</h1>
+<h2>📋 目录</h2>
+<ul>
+<li><a href="#%E4%B8%80%E7%A8%8B%E5%BA%8F%E5%AE%89%E8%A3%85%E6%96%B9%E5%BC%8F%E5%88%86%E7%B1%BB">一、程序安装方式分类</a></li>
+<li><a href="#%E4%BA%8C%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%AE%89%E8%A3%85%E7%9A%84%E7%A8%8B%E5%BA%8F%E5%A6%82%E4%BD%95%E6%9F%A5%E6%89%BE">二、命令行安装的程序如何查找</a></li>
+<li><a href="#%E4%B8%89%E6%89%8B%E5%8A%A8%E5%AE%89%E8%A3%85%E5%8C%85%E5%A6%82%E4%BD%95%E6%9F%A5%E6%89%BE">三、手动安装包如何查找</a></li>
+<li><a href="#%E5%9B%9B%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F%E9%85%8D%E7%BD%AE%E6%96%B9%E6%B3%95">四、环境变量配置方法</a></li>
+<li><a href="#%E4%BA%94%E9%80%9A%E8%BF%87%E4%BB%A3%E7%A0%81%E8%84%9A%E6%9C%AC%E6%9F%A5%E6%89%BE%E7%A8%8B%E5%BA%8F%E8%B7%AF%E5%BE%84">五、通过代码/脚本查找程序路径</a></li>
+<li><a href="#%E5%85%AD%E5%AE%9E%E7%94%A8%E5%B7%A5%E5%85%B7%E5%87%BD%E6%95%B0">六、实用工具函数</a></li>
+</ul>
+<hr>
+<h2>程序安装方式分类</h2>
+<h3>包管理器安装（推荐）</h3>
+<ul>
+<li><strong>npm</strong> - Node.js 包管理器</li>
+<li><strong>pip</strong> - Python 包管理器</li>
+<li><strong>chocolatey</strong> - Windows 通用包管理器</li>
+<li><strong>winget</strong> - Windows 官方包管理器</li>
+<li><strong>scoop</strong> - Windows 命令行安装器</li>
+</ul>
+<h3>图形化安装包</h3>
+<ul>
+<li><code>.exe</code> / <code>.msi</code> 安装文件</li>
+<li>从官网下载安装包后双击安装</li>
+</ul>
+<h3>绿色版/便携版</h3>
+<ul>
+<li>直接解压即可使用</li>
+<li>无需安装，但需要手动配置路径</li>
+</ul>
+<hr>
+<h2>命令行安装的程序如何查找</h2>
+<h3>npm 安装的程序</h3>
+<pre><code class="language-powershell"># 1. 查看全局安装的包
+npm list -g | Select-String "包名"
+
+# 2. 获取全局安装目录
+npm config get prefix
+# 输出示例：C:\Users\用户名\AppData\Roaming\npm
+
+# 3. 如果已在 PATH 中，直接查找
+where.exe 命令名
+# 或 PowerShell
+Get-Command 命令名 | Select-Object Source
+</code></pre>
+<p><strong>示例：查找 Claude CLI</strong></p>
+<pre><code class="language-powershell">npm list -g | Select-String "claude"
+# 输出：@anthropic-ai/claude-code@2.1.150
+
+npm config get prefix
+# 输出：C:\Users\Y\AppData\Roaming\npm
+
+where.exe claude
+# 输出：C:\Users\Y\AppData\Roaming\npm\claude.cmd
+</code></pre>
+<h3>pip 安装的程序</h3>
+<pre><code class="language-powershell"># 1. 查看包信息
+pip show 包名
+
+# 2. 查看 Python 包安装位置
+python -m site --user-site
+# 或
+pip config get global.target
+
+# 3. 查找可执行文件
+where.exe python
+Get-Command python | Select-Object Source
+</code></pre>
+<p><strong>示例：查找 Jupyter</strong></p>
+<pre><code class="language-powershell">pip show jupyter
+# 输出包含 Location: C:\Users\用户名\AppData\Local\Programs\Python\Python39\Lib\site-packages
+
+where.exe jupyter
+# 输出：C:\Users\用户名\AppData\Local\Programs\Python\Python39\Scripts\jupyter.exe
+</code></pre>
+<h3>Chocolatey 安装的软件</h3>
+<pre><code class="language-powershell"># 1. 查看已安装的包
+choco list --local-only | Select-String "包名"
+
+# 2. 查看包的详细信息
+choco info 包名
+
+# 3. Chocolatey 默认安装位置
+# C:\ProgramData\chocolatey\lib\包名
+</code></pre>
+<p><strong>示例：查找 Git</strong></p>
+<pre><code class="language-powershell">choco list --local-only | Select-String "git"
+# 输出：git 2.40.0
+
+Get-ChildItem "C:\ProgramData\chocolatey\lib\git*" -ErrorAction SilentlyContinue
+</code></pre>
+<h3>Winget 安装的软件</h3>
+<pre><code class="language-powershell"># 1. 查看已安装的软件
+winget list | Select-String "软件名"
+
+# 2. 查看软件详细信息
+winget show 软件ID
+
+# 3. Winget 默认安装位置
+# 通常在 C:\Program Files 或用户选择的目录
+</code></pre>
+<p><strong>示例：查找 VS Code</strong></p>
+<pre><code class="language-powershell">winget list | Select-String "code"
+# 输出：Microsoft.VisualStudioCode 1.80.0
+
+where.exe code
+</code></pre>
+<h3>Scoop 安装的软件</h3>
+<pre><code class="language-powershell"># 1. 查看已安装的软件
+scoop list | Select-String "软件名"
+
+# 2. Scoop 默认安装位置
+# C:\Users\用户名\scoop\apps\软件名\当前版本
+</code></pre>
+<hr>
+<h2>手动安装包如何查找</h2>
+<h3>方法一：检查常见安装位置 ⭐</h3>
+<p>大多数 Windows 软件安装在以下位置：</p>
+<pre><code class="language-powershell"># 系统级安装（所有用户）
+C:\Program Files
+C:\Program Files (x86)
+
+# 用户级安装（当前用户）
+C:\Users\用户名\AppData\Local
+C:\Users\用户名\AppData\Roaming
+C:\Users\用户名\AppData\Local\Programs
+</code></pre>
+<p><strong>搜索命令：</strong></p>
+<pre><code class="language-powershell"># 在 Program Files 中搜索
+Get-ChildItem "C:\Program Files" -Filter "*关键词*" -ErrorAction SilentlyContinue | 
+    Select-Object Name, FullName
+
+# 在 AppData 中搜索
+Get-ChildItem "C:\Users\$env:USERNAME\AppData\Local" -Recurse -Filter "*关键词*.exe" -ErrorAction SilentlyContinue | 
+    Select-Object FullName -First 5
+
+# 多位置同时搜索
+$paths = @(
+    "C:\Program Files",
+    "C:\Program Files (x86)",
+    "C:\Users\$env:USERNAME\AppData\Local",
+    "C:\Users\$env:USERNAME\AppData\Roaming"
+)
+
+foreach ($path in $paths) {
+    Get-ChildItem $path -Recurse -Filter "*chrome*.exe" -ErrorAction SilentlyContinue | 
+        Select-Object FullName -First 1
+}
+# 如果不想写那么多代码，可以用这个简化版本：在所有常见位置搜索 chrome.exe
+Get-ChildItem "C:\Program Files","C:\Program Files (x86)","C:\Users\$env:USERNAME\AppData\Local" -Recurse -Filter "chrome.exe" -ErrorAction SilentlyContinue | Select-Object FullName -First 1
+
+</code></pre>
+<h3>方法二：检查 Windows 注册表 ⭐⭐⭐</h3>
+<p>注册表是最可靠的查找方式，因为安装程序通常会在此记录信息。</p>
+<pre><code class="language-powershell"># 1. 查看所有已安装的软件
+Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" | 
+    Select-Object DisplayName, DisplayVersion, InstallLocation | 
+    Format-Table -AutoSize
+
+# 2. 搜索特定软件
+Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*" | 
+    Where-Object { $_.DisplayName -like "*Java*" } | 
+    Select-Object DisplayName, InstallLocation
+
+# 3. 检查 32 位软件（WOW6432Node）
+Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*" | 
+    Where-Object { $_.DisplayName -like "*Python*" } | 
+    Select-Object DisplayName, InstallLocation
+
+# 4. 检查当前用户的安装
+Get-ItemProperty "HKCU:\SOFTWARE\*" -ErrorAction SilentlyContinue | 
+    Where-Object { $_.PSChildName -like "*关键词*" } | 
+    Select-Object PSChildName, InstallLocation
+</code></pre>
+<p><strong>常用注册表路径：</strong></p>
+<pre><code>HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*          # 64位软件
+HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*  # 32位软件
+HKCU:\SOFTWARE\*                                                      # 当前用户软件
+HKLM:\SOFTWARE\JavaSoft\*                                             # Java 特定
+HKLM:\SOFTWARE\Python\PythonCore\*\InstallPath                        # Python 特定
+</code></pre>
+<h3>方法三：检查开始菜单快捷方式</h3>
+<pre><code class="language-powershell"># 查找开始菜单中的快捷方式
+$startMenuPaths = @(
+    "$env:APPDATA\Microsoft\Windows\Start Menu\Programs",
+    "C:\ProgramData\Microsoft\Windows\Start Menu\Programs"
+)
+
+foreach ($path in $startMenuPaths) {
+    Get-ChildItem $path -Recurse -Filter "*.lnk" -ErrorAction SilentlyContinue | 
+        Where-Object { $_.Name -like "*VS Code*" } | 
+        ForEach-Object {
+            $shell = New-Object -ComObject WScript.Shell
+            $shortcut = $shell.CreateShortcut($_.FullName)
+            Write-Host "$($_.Name) -> $($shortcut.TargetPath)"
+        }
+}
+</code></pre>
+<h3>方法四：使用 where.exe（如果已在 PATH 中）</h3>
+<pre><code class="language-powershell"># 最简单的方法，但前提是程序路径已在环境变量中
+where.exe 程序名
+
+# 示例
+where.exe java
+where.exe python
+where.exe git
+</code></pre>
+<h3>方法五：全盘搜索（最后手段，很慢）</h3>
+<pre><code class="language-powershell"># ⚠️ 警告：非常慢，可能需要几分钟
+Get-ChildItem "C:\" -Recurse -Filter "java.exe" -ErrorAction SilentlyContinue | 
+    Select-Object FullName -First 5
+
+# 限制搜索深度加快速度
+Get-ChildItem "C:\Program Files" -Recurse -Depth 3 -Filter "python.exe" -ErrorAction SilentlyContinue | 
+    Select-Object FullName
+</code></pre>
+<hr>
+<h2>环境变量配置方法</h2>
+<h3>PowerShell 配置（推荐）⭐</h3>
+<h4>添加到用户环境变量（无需管理员权限）</h4>
+<pre><code class="language-powershell"># 基本语法
+[Environment]::SetEnvironmentVariable(
+    "Path", 
+    $env:Path + ";你的路径", 
+    [EnvironmentVariableTarget]::User
+)
+
+# 示例：添加 Java JDK
+[Environment]::SetEnvironmentVariable(
+    "Path", 
+    $env:Path + ";C:\Program Files\Java\jdk-25.0.1\bin", 
+    [EnvironmentVariableTarget]::User
+)
+
+# 示例：添加 Python
+[Environment]::SetEnvironmentVariable(
+    "Path", 
+    $env:Path + ";C:\Python39;C:\Python39\Scripts", 
+    [EnvironmentVariableTarget]::User
+)
+
+# 示例：添加 Node.js 全局包
+[Environment]::SetEnvironmentVariable(
+    "Path", 
+    $env:Path + ";C:\Users\Y\AppData\Roaming\npm", 
+    [EnvironmentVariableTarget]::User
+)
+</code></pre>
+<h4>添加到系统环境变量（需要管理员权限）</h4>
+<pre><code class="language-powershell"># 以管理员身份运行 PowerShell
+[Environment]::SetEnvironmentVariable(
+    "Path", 
+    $env:Path + ";C:\Program Files\Git\bin", 
+    [EnvironmentVariableTarget]::Machine
+)
+</code></pre>
+<h4>刷新当前会话的环境变量</h4>
+<pre><code class="language-powershell"># 立即生效，无需重启终端
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + 
+            [System.Environment]::GetEnvironmentVariable("Path","User")
+</code></pre>
+<h3>使用 setx 命令</h3>
+<pre><code class="language-powershell"># 用户级别
+setx PATH "%PATH%;C:\你的\路径"
+
+# 系统级别（需要管理员）
+setx PATH "%PATH%;C:\你的\路径" /M
+
+# 示例
+setx PATH "%PATH%;C:\Program Files\Java\jdk-25.0.1\bin"
+</code></pre>
+<p>⚠️ <strong>注意</strong>：<code>setx</code> 有长度限制（1024 字符），且不会立即在当前会话生效。</p>
+<h3>图形界面配置（手动）</h3>
+<ol>
+<li>右键"此电脑" → "属性"</li>
+<li>"高级系统设置" → "环境变量"</li>
+<li>在"用户变量"或"系统变量"中找到 <code>Path</code></li>
+<li>点击"编辑" → "新建"</li>
+<li>输入路径，确定保存</li>
+<li><strong>重启终端</strong>使配置生效</li>
+</ol>
+<h3>验证配置是否成功</h3>
+<pre><code class="language-powershell"># 1. 查看当前 PATH
+$env:Path -split ';'
+
+# 2. 检查特定路径是否在 PATH 中
+$env:Path -like "*C:\Python39*"
+
+# 3. 测试命令
+java -version
+python --version
+node -v
+</code></pre>
+<hr>
+<h2>通过代码/脚本查找程序路径</h2>
+<h3>PowerShell 脚本查找</h3>
+<pre><code class="language-powershell"># 方法1：使用 Get-Command
+$command = Get-Command "java" -ErrorAction SilentlyContinue
+if ($command) {
+    Write-Host "找到: $($command.Source)"
+} else {
+    Write-Host "未找到"
+}
+
+# 方法2：使用 where.exe
+$result = where.exe "python" 2>$null
+if ($result) {
+    Write-Host "找到: $result"
+}
+
+# 方法3：检查文件是否存在
+if (Test-Path "C:\Program Files\Java\jdk-25.0.1\bin\java.exe") {
+    Write-Host "Java 存在"
+}
+</code></pre>
+<h3>Python 脚本查找</h3>
+<pre><code class="language-python">import shutil
+import os
+import subprocess
+
+# 方法1：使用 shutil.which（类似 where.exe）
+java_path = shutil.which("java")
+print(f"Java 路径: {java_path}")
+
+# 方法2：检查常见位置
+common_paths = [
+    r"C:\Program Files\Java",
+    r"C:\Program Files (x86)\Java",
+    os.path.expanduser(r"~\AppData\Local\Programs\Python"),
+]
+
+for path in common_paths:
+    if os.path.exists(path):
+        print(f"找到: {path}")
+
+# 方法3：查询注册表（Windows）
+try:
+    import winreg
+    key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, 
+                         r"SOFTWARE\JavaSoft\Java Runtime Environment")
+    version = winreg.QueryValueEx(key, "CurrentVersion")[0]
+    print(f"Java 版本: {version}")
+except FileNotFoundError:
+    print("Java 未在注册表中找到")
+</code></pre>
+<h3>Java 代码查找</h3>
+<pre><code class="language-java">import java.io.BufferedReader;
+import java.io.InputStreamReader;
+
+public class ProgramFinder {
+    
+    // 方法1：执行 where 命令
+    public static String findProgram(String programName) {
+        try {
+            Process process = Runtime.getRuntime().exec("where.exe " + programName);
+            BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream())
+            );
+            String line = reader.readLine();
+            return line; // 返回第一行结果
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    // 方法2：检查环境变量
+    public static String getEnvPath(String envVar) {
+        return System.getenv(envVar);
+    }
+    
+    // 方法3：检查文件是否存在
+    public static boolean checkExists(String path) {
+        return new java.io.File(path).exists();
+    }
+    
+    public static void main(String[] args) {
+        // 查找 Java
+        String javaPath = findProgram("java");
+        System.out.println("Java 路径: " + javaPath);
+        
+        // 检查 JAVA_HOME
+        String javaHome = getEnvPath("JAVA_HOME");
+        System.out.println("JAVA_HOME: " + javaHome);
+        
+        // 检查特定路径
+        boolean exists = checkExists("C:\\Program Files\\Java\\jdk-25.0.1\\bin\\java.exe");
+        System.out.println("Java 是否存在: " + exists);
+    }
+}
+</code></pre>
+<h3>Batch 批处理脚本</h3>
+<pre><code class="language-batch">@echo off
+REM 方法1：使用 where 命令
+where java >nul 2>&#x26;1
+if %errorlevel% equ 0 (
+    echo Java 已找到
+    where java
+) else (
+    echo Java 未找到
+)
+
+REM 方法2：检查环境变量
+if defined JAVA_HOME (
+    echo JAVA_HOME=%JAVA_HOME%
+) else (
+    echo JAVA_HOME 未设置
+)
+
+REM 方法3：检查文件是否存在
+if exist "C:\Program Files\Java\jdk-25.0.1\bin\java.exe" (
+    echo Java 存在于指定路径
+)
+</code></pre>
+<hr>
+<h2>实用工具函数</h2>
+<h3>PowerShell 通用查找函数</h3>
+<pre><code class="language-powershell">function Find-Program {
+    &#x3C;#
+    .SYNOPSIS
+        查找程序的安装路径
+    
+    .DESCRIPTION
+        通过多种方式查找程序：PATH、常见位置、注册表
+    
+    .PARAMETER ProgramName
+        要查找的程序名称
+    
+    .EXAMPLE
+        Find-Program "java"
+        Find-Program "python"
+        Find-Program "chrome"
+    #>
+    
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$ProgramName
+    )
+    
+    Write-Host "🔍 正在查找: $ProgramName" -ForegroundColor Cyan
+    Write-Host ""
+    
+    # 方法1：where.exe（最快）
+    Write-Host "[1/4] 检查 PATH..." -ForegroundColor Yellow
+    $whereResult = where.exe $ProgramName 2>$null
+    if ($whereResult) {
+        Write-Host "✅ 在 PATH 中找到:" -ForegroundColor Green
+        $whereResult | ForEach-Object { Write-Host "   $_" }
+        Write-Host ""
+        return $whereResult[0]
+    }
+    Write-Host "   ❌ 不在 PATH 中" -ForegroundColor Gray
+    
+    # 方法2：常见位置搜索
+    Write-Host "[2/4] 搜索常见位置..." -ForegroundColor Yellow
+    $commonPaths = @(
+        "C:\Program Files",
+        "C:\Program Files (x86)",
+        "C:\Users\$env:USERNAME\AppData\Local",
+        "C:\Users\$env:USERNAME\AppData\Roaming",
+        "C:\Users\$env:USERNAME\AppData\Local\Programs"
+    )
+    
+    foreach ($path in $commonPaths) {
+        $result = Get-ChildItem $path -Recurse -Filter "*$ProgramName*.exe" -ErrorAction SilentlyContinue -Depth 2 | 
+                  Select-Object FullName -First 1
+        if ($result) {
+            Write-Host "✅ 在常见位置找到:" -ForegroundColor Green
+            Write-Host "   $($result.FullName)" -ForegroundColor White
+            Write-Host ""
+            return $result.FullName
+        }
+    }
+    Write-Host "   ❌ 常见位置未找到" -ForegroundColor Gray
+    
+    # 方法3：注册表查询
+    Write-Host "[3/4] 查询注册表..." -ForegroundColor Yellow
+    $regPaths = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )
+    
+    foreach ($regPath in $regPaths) {
+        $regResult = Get-ItemProperty $regPath -ErrorAction SilentlyContinue |
+                     Where-Object { $_.DisplayName -like "*$ProgramName*" } |
+                     Select-Object DisplayName, InstallLocation -First 1
+        
+        if ($regResult -and $regResult.InstallLocation) {
+            Write-Host "✅ 通过注册表找到:" -ForegroundColor Green
+            Write-Host "   名称: $($regResult.DisplayName)" -ForegroundColor White
+            Write-Host "   路径: $($regResult.InstallLocation)" -ForegroundColor White
+            Write-Host ""
+            return $regResult.InstallLocation
+        }
+    }
+    Write-Host "   ❌ 注册表未找到" -ForegroundColor Gray
+    
+    # 方法4：开始菜单快捷方式
+    Write-Host "[4/4] 检查开始菜单..." -ForegroundColor Yellow
+    $startMenuPath = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs"
+    $shortcut = Get-ChildItem $startMenuPath -Recurse -Filter "*.lnk" -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -like "*$ProgramName*" } |
+                Select-Object -First 1
+    
+    if ($shortcut) {
+        $shell = New-Object -ComObject WScript.Shell
+        $target = $shell.CreateShortcut($shortcut.FullName).TargetPath
+        Write-Host "✅ 通过快捷方式找到:" -ForegroundColor Green
+        Write-Host "   $target" -ForegroundColor White
+        Write-Host ""
+        return $target
+    }
+    Write-Host "   ❌ 开始菜单未找到" -ForegroundColor Gray
+    
+    Write-Host ""
+    Write-Host "❌ 未找到 $ProgramName" -ForegroundColor Red
+    Write-Host "建议：" -ForegroundColor Yellow
+    Write-Host "  1. 确认程序已安装" -ForegroundColor Gray
+    Write-Host "  2. 手动指定完整路径" -ForegroundColor Gray
+    Write-Host "  3. 将程序目录添加到 PATH" -ForegroundColor Gray
+    
+    return $null
+}
+</code></pre>
+<h3>PowerShell 添加到 PATH 函数</h3>
+<pre><code class="language-powershell">function Add-ToPath {
+    &#x3C;#
+    .SYNOPSIS
+        将路径添加到环境变量 PATH
+    
+    .DESCRIPTION
+        支持用户级别和系统级别，自动检测重复
+    
+    .PARAMETER NewPath
+        要添加的路径
+    
+    .PARAMETER Scope
+        作用域：User（默认）或 Machine
+    
+    .EXAMPLE
+        Add-ToPath "C:\Python39"
+        Add-ToPath "C:\Java\bin" -Scope Machine
+    #>
+    
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$NewPath,
+        
+        [ValidateSet("User", "Machine")]
+        [string]$Scope = "User"
+    )
+    
+    # 检查路径是否存在
+    if (-not (Test-Path $NewPath)) {
+        Write-Host "⚠️  警告: 路径不存在: $NewPath" -ForegroundColor Yellow
+        $confirm = Read-Host "是否继续添加？(y/n)"
+        if ($confirm -ne 'y') {
+            return
+        }
+    }
+    
+    # 获取当前 PATH
+    $currentPath = [Environment]::GetEnvironmentVariable("Path", $Scope)
+    
+    # 检查是否已存在
+    if ($currentPath -split ';' | Where-Object { $_ -eq $NewPath }) {
+        Write-Host "⚠️  路径已存在: $NewPath" -ForegroundColor Yellow
+        return
+    }
+    
+    # 添加到 PATH
+    try {
+        [Environment]::SetEnvironmentVariable(
+            "Path", 
+            "$currentPath;$NewPath", 
+            $Scope
+        )
+        
+        Write-Host "✅ 已添加到 $($Scope) PATH:" -ForegroundColor Green
+        Write-Host "   $NewPath" -ForegroundColor White
+        
+        # 刷新当前会话
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + 
+                    [System.Environment]::GetEnvironmentVariable("Path","User")
+        
+        Write-Host "✅ 当前会话已刷新" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "提示: 新打开的终端窗口也会自动生效" -ForegroundColor Cyan
+        
+    } catch {
+        Write-Host "❌ 添加失败: $_" -ForegroundColor Red
+    }
+}
+</code></pre>
+<h3>完整工作流示例</h3>
+<pre><code class="language-powershell"># 场景：安装 Python 后配置环境变量
+
+# 1. 查找 Python 安装位置
+$pythonPath = Find-Program "python"
+
+# 2. 如果找到，提取目录并添加到 PATH
+if ($pythonPath) {
+    $pythonDir = Split-Path $pythonPath -Parent
+    Add-ToPath $pythonDir
+    
+    # 如果有 Scripts 目录，也添加
+    $scriptsDir = Join-Path (Split-Path $pythonDir -Parent) "Scripts"
+    if (Test-Path $scriptsDir) {
+        Add-ToPath $scriptsDir
+    }
+}
+
+# 3. 验证
+python --version
+pip --version
+</code></pre>
+<hr>
+<h2>常见问题与解决方案</h2>
+<h3>Q1: 为什么修改 PATH 后命令还是找不到？</h3>
+<p><strong>A:</strong> 需要刷新环境变量：</p>
+<pre><code class="language-powershell"># 方法1：刷新当前会话
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + 
+            [System.Environment]::GetEnvironmentVariable("Path","User")
+
+# 方法2：关闭并重新打开终端（推荐）
+</code></pre>
+<h3>Q2: 用户变量和系统变量有什么区别？</h3>
+<p><strong>A:</strong></p>
+<ul>
+<li><strong>用户变量</strong>：只对当前用户生效，无需管理员权限</li>
+<li><strong>系统变量</strong>：对所有用户生效，需要管理员权限</li>
+<li><strong>优先级</strong>：用户变量优先于系统变量</li>
+</ul>
+<h3>Q3: PATH 太长怎么办？</h3>
+<p><strong>A:</strong></p>
+<pre><code class="language-powershell"># 查看 PATH 长度
+$env:Path.Length
+
+# 清理无效路径
+$paths = $env:Path -split ';' | Where-Object { Test-Path $_ }
+$newPath = $paths -join ';'
+[Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+</code></pre>
+<h3>Q4: 如何永久删除 PATH 中的某个路径？</h3>
+<pre><code class="language-powershell">$pathToRemove = "C:\要删除的路径"
+$currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
+$newPath = ($currentPath -split ';' | Where-Object { $_ -ne $pathToRemove }) -join ';'
+[Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+</code></pre>
+<h3>Q5: 如何查看完整的 PATH 内容？</h3>
+<pre><code class="language-powershell"># 格式化显示
+$env:Path -split ';' | ForEach-Object { Write-Host $_ }
+
+# 或导出到文件
+$env:Path -split ';' | Out-File "path_list.txt"
+</code></pre>
+<hr>
+<h2>快速参考速查表</h2>
+<h3>查找命令速查</h3>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>命令</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>在 PATH 中查找</td>
+<td><code>where.exe 程序名</code></td>
+</tr>
+<tr>
+<td>npm 包位置</td>
+<td><code>npm config get prefix</code></td>
+</tr>
+<tr>
+<td>pip 包位置</td>
+<td><code>pip show 包名</code></td>
+</tr>
+<tr>
+<td>常见位置搜索</td>
+<td><code>Get-ChildItem "C:\Program Files" -Filter "*关键词*"</code></td>
+</tr>
+<tr>
+<td>注册表查询</td>
+<td><code>Get-ItemProperty "HKLM:\SOFTWARE\...\Uninstall\*"</code></td>
+</tr>
+<tr>
+<td>全盘搜索</td>
+<td><code>Get-ChildItem "C:\" -Recurse -Filter "*.exe"</code></td>
+</tr>
+</tbody>
+</table>
+<h3>环境变量配置速查</h3>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>命令</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>添加到用户 PATH</td>
+<td><code>[Environment]::SetEnvironmentVariable("Path", $env:Path + ";路径", "User")</code></td>
+</tr>
+<tr>
+<td>添加到系统 PATH</td>
+<td><code>[Environment]::SetEnvironmentVariable("Path", $env:Path + ";路径", "Machine")</code></td>
+</tr>
+<tr>
+<td>刷新当前会话</td>
+<td><code>$env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Environment]::GetEnvironmentVariable("Path","User")</code></td>
+</tr>
+<tr>
+<td>查看当前 PATH</td>
+<td><code>$env:Path -split ';'</code></td>
+</tr>
+<tr>
+<td>检查路径是否存在</td>
+<td><code>Test-Path "路径"</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>最佳实践建议</h2>
+<h3>✅ 推荐做法</h3>
+<ol>
+<li><strong>优先使用包管理器</strong>：npm、pip、chocolatey、winget</li>
+<li><strong>使用用户级环境变量</strong>：避免权限问题</li>
+<li><strong>定期清理 PATH</strong>：移除无效路径</li>
+<li><strong>使用工具函数</strong>：封装常用操作</li>
+<li><strong>记录安装路径</strong>：建立个人知识库</li>
+</ol>
+<h3>❌ 避免做法</h3>
+<ol>
+<li><strong>不要频繁修改系统变量</strong>：可能影响其他用户</li>
+<li><strong>不要全盘搜索</strong>：除非必要，速度太慢</li>
+<li><strong>不要忘记刷新</strong>：修改后记得刷新或重启终端</li>
+<li><strong>不要硬编码路径</strong>：使用环境变量动态获取</li>
+</ol>
+<hr>
+<h2>总结</h2>
+<h3>查找程序的策略顺序</h3>
+<pre><code>1. where.exe / Get-Command（最快，依赖 PATH）
+   ↓ 未找到
+2. 包管理器查询（npm/pip/choco/winget）
+   ↓ 未找到
+3. 常见位置搜索（Program Files/AppData）
+   ↓ 未找到
+4. 注册表查询（最可靠）
+   ↓ 未找到
+5. 开始菜单快捷方式
+   ↓ 未找到
+6. 全盘搜索（最后手段）
+</code></pre>
+<h3>配置环境变量的步骤</h3>
+<pre><code>1. 找到程序路径
+   ↓
+2. 添加到 PATH（用户级推荐）
+   ↓
+3. 刷新当前会话
+   ↓
+4. 验证配置成功
+</code></pre>
+<hr>
+<p><strong>文档版本</strong>: 1.0<br>
+<strong>最后更新</strong>: 2026-05-24<br>
+<strong>适用系统</strong>: Windows 10/11, PowerShell 5.1+</p>
+]]></content:encoded>
     </item>
     <item>
       <title>你好，世界！</title>
@@ -41,6 +3130,31 @@
       <description>我的第一篇博客文章，欢迎来到我的个人空间。</description>
       <pubDate>Sun, 24 May 2026 00:00:00 GMT</pubDate>
       <guid>https://asy424.github.io/my-blog/blog/post-mpjs9zwr</guid>
+      <content:encoded><![CDATA[<h2>终于开始了</h2>
+<p>这是我的第一篇博客文章。一直以来都想搭建一个属于自己的个人博客，今天终于迈出了这一步。</p>
+<h2>为什么要写博客</h2>
+<p>记录思考、分享知识、沉淀经验。写作是很好的思考方式，把模糊的想法变成清晰的文字，这个过程本身就很有价值。</p>
+<h2>这里会有什么</h2>
+<ul>
+<li><strong>技术分享</strong>：编程心得、技术教程、项目总结</li>
+<li><strong>生活记录</strong>：读书笔记、旅行见闻、日常思考</li>
+<li><strong>资源推荐</strong>：好用的工具、优质的文章、值得学习的资源</li>
+</ul>
+<h2>关于代码</h2>
+<p>写技术博客自然少不了代码片段：</p>
+<pre><code class="language-python">def hello():
+    print("你好，世界！")
+
+hello()
+</code></pre>
+<p>或者 JavaScript：</p>
+<pre><code class="language-javascript">const greeting = "你好，世界！";
+console.log(greeting);
+</code></pre>
+<h2>写在最后</h2>
+<p>希望这个博客能成为我思考和成长的一个记录。也希望能给来访的朋友带来一些有价值的内容。</p>
+<p>谢谢阅读，我们下一篇见！</p>
+]]></content:encoded>
     </item>
     <item>
       <title>我是如何搭建这个博客的</title>
@@ -48,6 +3162,49 @@
       <description>从零开始搭建个人博客的技术选型与实现过程。</description>
       <pubDate>Sun, 24 May 2026 00:00:00 GMT</pubDate>
       <guid>https://asy424.github.io/my-blog/blog/building-this-blog</guid>
+      <content:encoded><![CDATA[<h2>技术选型</h2>
+<p>这个博客的技术栈非常简单：</p>
+<ul>
+<li><strong>Next.js</strong> — React 全栈框架，支持静态生成</li>
+<li><strong>Tailwind CSS</strong> — 原子化 CSS 框架</li>
+<li><strong>Markdown</strong> — 用 Markdown 写文章，gray-matter 管理元数据</li>
+<li><strong>GitHub Pages</strong> — 免费托管，配合 GitHub Actions 自动部署</li>
+</ul>
+<h2>为什么选 Next.js</h2>
+<p>选择 Next.js 主要是因为：</p>
+<ol>
+<li><strong>静态生成</strong>：构建时生成 HTML，部署简单，加载飞快</li>
+<li><strong>React 生态</strong>：组件化开发，生态丰富</li>
+<li><strong>文件路由</strong>：基于文件系统的路由，直观好用</li>
+</ol>
+<h2>部署流程</h2>
+<p>整体流程很简单：</p>
+<ol>
+<li>在本地写 Markdown 文章</li>
+<li>推送到 GitHub 仓库</li>
+<li>GitHub Actions 自动构建</li>
+<li>部署到 GitHub Pages</li>
+</ol>
+<p>整个过程完全自动化，写文章只需要关注内容本身。</p>
+<h2>功能特性</h2>
+<p>目前博客支持：</p>
+<ul>
+<li>Markdown 文章编写</li>
+<li>标签分类</li>
+<li>暗色模式切换</li>
+<li>全文搜索</li>
+<li>RSS 订阅</li>
+<li>响应式设计</li>
+</ul>
+<h2>下一步计划</h2>
+<p>未来还想加入：</p>
+<ul>
+<li>更多个性化主题</li>
+<li>文章阅读量统计</li>
+<li>更好的代码高亮</li>
+</ul>
+<p>博客会持续迭代，慢慢完善。</p>
+]]></content:encoded>
     </item>
   </channel>
 </rss>

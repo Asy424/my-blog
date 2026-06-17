@@ -25,6 +25,7 @@ export default function ReadingProgress() {
 
   return (
     <div
+      suppressHydrationWarning
       className="reading-progress"
       style={{ width: `${progress}%` }}
       role="progressbar"

@@ -6,23 +6,20 @@ import remarkRehype from "remark-rehype";
 import rehypeStringify from "rehype-stringify";
 import rehypeShiki from "@shikijs/rehype";
 import rehypeSlug from "rehype-slug";
-import { getPostBySlug, getSortedPostsData, getPostNeighbors } from "@/lib/posts";
-import { getPostSeriesPosition } from "@/lib/series";
+import { getBacklinks, getPostBySlug, getSortedPostsData, getPostNeighbors, getRelatedPosts } from "@/lib/posts";
+import { getPostSeriesPosition, getSeriesNeighbors } from "@/lib/series";
+import { getSeriesClassName } from "@/lib/series-config";
 import TagBadge from "@/components/TagBadge";
 import CodeBlock from "@/components/CodeBlock";
 import ImageLightbox from "@/components/ImageLightbox";
 import ReadingProgress from "@/components/ReadingProgress";
 import TableOfContents from "@/components/TableOfContents";
+import MobileTableOfContents from "@/components/MobileTableOfContents";
 import PostNav from "@/components/PostNav";
+import RelatedPosts from "@/components/RelatedPosts";
+import Backlinks from "@/components/Backlinks";
+import ReadingStats from "@/components/ReadingStats";
 import { siteConfig, withBasePath } from "@/site.config";
-
-/** 系列色辅助类映射（静态字符串，避免 Tailwind purge） */
-const seriesClass: Record<string, string> = {
-  codex: "s-codex",
-  "windows-setup": "s-windows",
-  "java-functional": "s-java",
-  "blog-building": "s-blog",
-};
 
 interface BlogPostPageProps {
   params: Promise<{ slug: string }>;
@@ -146,6 +143,7 @@ export async function generateMetadata({ params }: BlogPostPageProps) {
       siteName: siteConfig.name,
       type: "article",
       publishedTime: new Date(post.date).toISOString(),
+      modifiedTime: new Date(post.updated || post.date).toISOString(),
       tags: post.tags,
     },
   };
@@ -169,8 +167,11 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const headings: TocHeading[] = [];
   const blogBasePath = withBasePath("/blog");
   const neighbors = getPostNeighbors(slug);
+  const seriesNeighbors = getSeriesNeighbors(post);
+  const relatedPosts = getRelatedPosts(post);
+  const backlinks = getBacklinks(slug);
   const seriesPosition = getPostSeriesPosition(post);
-  const seriesCls = seriesPosition ? seriesClass[seriesPosition.series.slug] ?? "" : "";
+  const seriesCls = seriesPosition ? getSeriesClassName(seriesPosition.series) : "";
   const processedContent = await remark()
     .use(remarkGfm)
     .use(remarkRehype)
@@ -195,36 +196,48 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         <h1 className="font-display text-3xl font-normal tracking-tight leading-tight sm:text-4xl sm:text-5xl">{post.title}</h1>
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted">
           <span className="inline-flex items-center gap-1.5">
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg suppressHydrationWarning className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             <time dateTime={post.date}>{post.date}</time>
           </span>
+          {post.updated && post.updated !== post.date && (
+            <span className="inline-flex items-center gap-1.5">
+              <svg suppressHydrationWarning className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v6h6M20 20v-6h-6M5 19a9 9 0 0014-3M19 5a9 9 0 00-14 3" />
+              </svg>
+              <span>更新于 <time dateTime={post.updated}>{post.updated}</time></span>
+            </span>
+          )}
           {post.readingTime && (
             <span className="inline-flex items-center gap-1.5">
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg suppressHydrationWarning className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span>约 {post.readingTime} 分钟阅读</span>
             </span>
           )}
+          <ReadingStats slug={post.slug} />
         </div>
 
         {/* 所属系列 + 阅读进度 */}
         {seriesPosition && (
           <div
+            suppressHydrationWarning
             className="mt-5 flex flex-wrap items-center gap-3 rounded-lg border border-border p-4"
-            style={{ background: "var(--series-soft)", boxShadow: "var(--shadow-soft)" }}
+            style={{ backgroundColor: "var(--series-soft)", boxShadow: "var(--shadow-soft)" }}
           >
             <Link
+              suppressHydrationWarning
               href={`/series/${seriesPosition.series.slug}`}
               className="inline-flex items-center gap-1.5 text-sm font-medium transition-opacity hover:opacity-80"
               style={{ color: "var(--series)" }}
             >
               <span
+                suppressHydrationWarning
                 aria-hidden
                 className="h-2 w-2 rounded-full"
-                style={{ background: "var(--series)" }}
+                style={{ backgroundColor: "var(--series)" }}
               />
               {seriesPosition.series.title}
             </Link>
@@ -233,12 +246,13 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             </span>
             {/* 进度条 */}
             <div className="min-w-[6rem] flex-1">
-              <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: "color-mix(in srgb, var(--series) 18%, transparent)" }}>
+              <div suppressHydrationWarning className="h-1.5 w-full overflow-hidden rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--series) 18%, transparent)" }}>
                 <div
+                  suppressHydrationWarning
                   className="h-full rounded-full"
                   style={{
                     width: `${(seriesPosition.index / seriesPosition.total) * 100}%`,
-                    background: "var(--series)",
+                    backgroundColor: "var(--series)",
                   }}
                 />
               </div>
@@ -255,17 +269,27 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         )}
       </header>
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-10">
-        <div
-          className="prose"
-          dangerouslySetInnerHTML={{ __html: contentHtml }}
-        />
+        <div>
+          <MobileTableOfContents headings={headings} />
+          <div
+            className="prose"
+            dangerouslySetInnerHTML={{ __html: contentHtml }}
+          />
+        </div>
         {headings.length > 0 && (
           <aside className="hidden lg:block">
             <TableOfContents headings={headings} />
           </aside>
         )}
       </div>
-      <PostNav prev={neighbors.prev} next={neighbors.next} />
+      <RelatedPosts posts={relatedPosts} />
+      <Backlinks posts={backlinks} />
+      <PostNav
+        prev={neighbors.prev}
+        next={neighbors.next}
+        seriesPrev={seriesNeighbors.prev}
+        seriesNext={seriesNeighbors.next}
+      />
     </article>
   );
 }

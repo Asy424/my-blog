@@ -47,6 +47,19 @@ export const seriesDefinitions: SeriesDefinition[] = [
   },
 ];
 
+const seriesClassByAccent: Record<SeriesDefinition["accent"], string> = {
+  blue: "s-codex",
+  emerald: "s-windows",
+  violet: "s-java",
+  amber: "s-blog",
+};
+
+export function getSeriesClassName(
+  series: Pick<SeriesDefinition, "accent"> | null | undefined
+): string {
+  return series ? seriesClassByAccent[series.accent] : "";
+}
+
 export function createSeriesSlug(title: string): string {
   const ascii = title
     .replace(/[^a-zA-Z0-9\s-]/g, "")

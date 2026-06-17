@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import matter from "gray-matter";
 import { siteConfig } from "../src/site.config";
+import { isValidDateString } from "../src/lib/post-schema";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.join(__dirname, "..");
@@ -13,6 +14,7 @@ const imageWarningBytes = 1.5 * 1024 * 1024;
 const errors = [];
 const warnings = [];
 const slugs = new Set();
+const fileContents = new Map();
 
 function addError(fileName, message) {
   errors.push(`${fileName}: ${message}`);
@@ -20,16 +22,6 @@ function addError(fileName, message) {
 
 function addWarning(fileName, message) {
   warnings.push(`${fileName}: ${message}`);
-}
-
-function isValidDate(value) {
-  if (value instanceof Date) {
-    return !Number.isNaN(value.getTime());
-  }
-  if (typeof value !== "string" || !value.trim()) {
-    return false;
-  }
-  return !Number.isNaN(new Date(value).getTime());
 }
 
 function normalizePublicImagePath(url) {
@@ -85,6 +77,50 @@ function validateImages(fileName, content) {
   }
 }
 
+function normalizeInternalLink(rawUrl) {
+  const cleanUrl = rawUrl
+    .trim()
+    .replace(/^<|>$/g, "")
+    .split("#")[0]
+    .split("?")[0];
+
+  if (
+    !cleanUrl ||
+    cleanUrl.startsWith("http://") ||
+    cleanUrl.startsWith("https://") ||
+    cleanUrl.startsWith("mailto:") ||
+    cleanUrl.startsWith("#")
+  ) {
+    return null;
+  }
+
+  if (cleanUrl.startsWith("./") && cleanUrl.endsWith(".md")) {
+    return cleanUrl.slice(2, -3);
+  }
+
+  const blogPrefix = siteConfig.basePath
+    ? `${siteConfig.basePath}/blog/`
+    : "/blog/";
+  if (cleanUrl.startsWith(blogPrefix)) {
+    return cleanUrl.slice(blogPrefix.length).replace(/\/$/, "");
+  }
+  if (cleanUrl.startsWith("/blog/")) {
+    return cleanUrl.slice("/blog/".length).replace(/\/$/, "");
+  }
+
+  return null;
+}
+
+function validateLinks(fileName, content) {
+  const linkRegex = /(?<!!)\[[^\]]+\]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)/g;
+  for (const match of content.matchAll(linkRegex)) {
+    const slug = normalizeInternalLink(match[1]);
+    if (slug && !slugs.has(decodeURIComponent(slug))) {
+      addError(fileName, `站内链接目标不存在: ${match[1]}`);
+    }
+  }
+}
+
 const files = fs
   .readdirSync(postsDir)
   .filter((fileName) => fileName.endsWith(".md"))
@@ -99,14 +135,19 @@ for (const fileName of files) {
 
   const fullPath = path.join(postsDir, fileName);
   const raw = fs.readFileSync(fullPath, "utf8");
+  fileContents.set(fileName, raw);
   const { data, content } = matter(raw);
 
   if (typeof data.title !== "string" || !data.title.trim()) {
     addError(fileName, "title 必须是非空字符串");
   }
 
-  if (!isValidDate(data.date)) {
+  if (!isValidDateString(data.date)) {
     addError(fileName, "date 必须是合法日期");
+  }
+
+  if (data.updated !== undefined && !isValidDateString(data.updated)) {
+    addError(fileName, "updated 必须是合法日期");
   }
 
   if (!Array.isArray(data.tags)) {
@@ -128,6 +169,11 @@ for (const fileName of files) {
   }
 
   validateImages(fileName, content);
+}
+
+for (const [fileName, raw] of fileContents) {
+  const { content } = matter(raw);
+  validateLinks(fileName, content);
 }
 
 if (warnings.length > 0) {

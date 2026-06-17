@@ -1,29 +1,11 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { ThemeProvider } from "next-themes";
 import { siteConfig } from "@/site.config";
-import { Noto_Sans_SC, DM_Serif_Display, Sora } from "next/font/google";
 import "./globals.css";
 
-const notoSansSC = Noto_Sans_SC({
-  weight: ["300", "400", "500", "700"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-zh",
-});
-
-const dmSerifDisplay = DM_Serif_Display({
-  weight: "400",
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-display",
-});
-
-const sora = Sora({
-  weight: ["300", "400", "500", "600", "700"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-sans",
-});
+const analyticsSrc = process.env.NEXT_PUBLIC_UMAMI_SRC;
+const analyticsWebsiteId = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -42,9 +24,16 @@ export const metadata: Metadata = {
     description: siteConfig.description,
     url: siteConfig.url,
     siteName: siteConfig.name,
-    locale: "zh_CN",
-    type: "website",
-  },
+      locale: "zh_CN",
+      type: "website",
+      images: ["/opengraph-image"],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: siteConfig.name,
+      description: siteConfig.description,
+      images: ["/opengraph-image"],
+    },
 };
 
 export default function RootLayout({
@@ -54,10 +43,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang={siteConfig.language} suppressHydrationWarning>
-      <body className={`min-h-screen flex flex-col bg-background text-foreground antialiased ${notoSansSC.variable} ${dmSerifDisplay.variable} ${sora.variable}`}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <body className="min-h-screen flex flex-col bg-background text-foreground antialiased">
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           {children}
         </ThemeProvider>
+        {analyticsSrc && analyticsWebsiteId && (
+          <Script
+            src={analyticsSrc}
+            data-website-id={analyticsWebsiteId}
+            strategy="lazyOnload"
+          />
+        )}
       </body>
     </html>
   );

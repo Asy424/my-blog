@@ -26,8 +26,17 @@ export interface GitHubFile {
   size: number;
 }
 
+export interface GitHubImageFile extends GitHubFile {
+  url: string;
+}
+
 interface GitHubContentFile extends GitHubFile {
   content?: string;
+}
+
+interface GitHubContentItem extends GitHubFile {
+  type: "file" | "dir" | string;
+  download_url?: string | null;
 }
 
 interface GitHubWriteBody {
@@ -53,6 +62,14 @@ function isGitHubFile(file: unknown): file is GitHubFile {
   );
 }
 
+function isGitHubContentItem(file: unknown): file is GitHubContentItem {
+  return isGitHubFile(file) && "type" in file && typeof (file as GitHubContentItem).type === "string";
+}
+
+function isImagePath(path: string): boolean {
+  return /\.(png|jpe?g|webp|gif|avif|svg)$/i.test(path);
+}
+
 export async function listPosts(token: string): Promise<GitHubFile[]> {
   const res = await fetch(
     `${API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/posts`,
@@ -63,6 +80,45 @@ export async function listPosts(token: string): Promise<GitHubFile[]> {
   return Array.isArray(data)
     ? data.filter((file): file is GitHubFile => isGitHubFile(file) && file.name.endsWith(".md"))
     : [];
+}
+
+export async function listImages(token: string): Promise<GitHubImageFile[]> {
+  async function walk(dir: string): Promise<GitHubImageFile[]> {
+    const res = await fetch(
+      `${API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${dir}`,
+      { headers: headers(token) }
+    );
+    if (res.status === 404) return [];
+    if (!res.ok) throw new Error("获取媒体库失败: " + res.status);
+
+    const data = (await res.json()) as unknown;
+    if (!Array.isArray(data)) return [];
+
+    const entries = data.filter(isGitHubContentItem);
+    const nested = await Promise.all(
+      entries.map(async (item) => {
+        if (item.type === "dir") return walk(item.path);
+        if (item.type === "file" && isImagePath(item.path)) {
+          const publicPath = item.path.replace(/^public\//, "");
+          return [
+            {
+              name: item.name,
+              path: item.path,
+              sha: item.sha,
+              size: item.size,
+              url: withBasePath(`/${publicPath}`),
+            },
+          ];
+        }
+        return [];
+      })
+    );
+
+    return nested.flat();
+  }
+
+  const images = await walk("public/images");
+  return images.sort((a, b) => b.path.localeCompare(a.path));
 }
 
 export async function getPostContent(
@@ -220,6 +276,14 @@ export async function uploadImage(
 
 export function verifyToken(token: string): Promise<boolean> {
   return fetch(`${API_BASE}/user`, { headers: headers(token) })
-    .then((res) => res.ok)
+    .then(async (res) => {
+      if (!res.ok) return false;
+      const repoRes = await fetch(`${API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}`, {
+        headers: headers(token),
+      });
+      if (!repoRes.ok) return false;
+      const repo = (await repoRes.json()) as { permissions?: { push?: boolean } };
+      return repo.permissions?.push !== false;
+    })
     .catch(() => false);
 }

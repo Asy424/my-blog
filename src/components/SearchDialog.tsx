@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Fuse from "fuse.js";
+import { useScrollLock } from "@/hooks/useScrollLock";
 
 interface SearchIndex {
   slug: string;
@@ -30,12 +31,21 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
   const [index, setIndex] = useState<SearchIndex[]>([]);
   const [fuse, setFuse] = useState<Fuse<SearchIndex> | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    let ignore = false;
+
     fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/search-index.json`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`搜索索引加载失败: ${res.status}`);
+        return res.json();
+      })
       .then((data: SearchIndex[]) => {
+        if (ignore) return;
         setIndex(data);
         setFuse(
           new Fuse(data, {
@@ -43,7 +53,17 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
             threshold: 0.35,
           })
         );
+        setLoading(false);
+      })
+      .catch((e: unknown) => {
+        if (ignore) return;
+        setError(e instanceof Error ? e.message : "搜索索引加载失败");
+        setLoading(false);
       });
+
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -51,12 +71,7 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
     return () => window.clearTimeout(timer);
   }, []);
 
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, []);
+  useScrollLock(true);
 
   const results = useMemo(() => {
     const trimmed = query.trim();
@@ -97,17 +112,68 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
     }
   }
 
+  function handleDialogKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Escape") {
+      onClose();
+      return;
+    }
+
+    if (e.key !== "Tab") return;
+
+    const focusable = Array.from(
+      dialogRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      ) ?? []
+    ).filter((el) => el.offsetParent !== null);
+
+    if (focusable.length === 0) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+
+    if (e.shiftKey && active === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  function highlightText(text: string) {
+    const trimmed = query.trim();
+    if (!trimmed) return text;
+
+    const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const parts = text.split(new RegExp(`(${escaped})`, "gi"));
+    return parts.map((part, index) =>
+      part.toLowerCase() === trimmed.toLowerCase() ? (
+        <mark
+          key={`${part}-${index}`}
+          className="rounded bg-accent-soft px-0.5 text-accent"
+        >
+          {part}
+        </mark>
+      ) : (
+        part
+      )
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh]">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div
+        ref={dialogRef}
         className="relative w-full max-w-2xl mx-4 bg-card rounded-xl shadow-2xl border border-border overflow-hidden animate-fade-in-up"
         role="dialog"
         aria-modal="true"
         aria-label="搜索文章"
+        onKeyDown={handleDialogKeyDown}
       >
         <div className="flex items-center border-b border-border px-4">
-          <svg className="w-5 h-5 text-muted shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg suppressHydrationWarning className="w-5 h-5 text-muted shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input
@@ -127,7 +193,19 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
           </kbd>
         </div>
 
-        {query && (
+        {loading && (
+          <div className="px-4 py-8 text-center text-sm text-muted">
+            正在加载搜索索引...
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className="px-4 py-8 text-center text-sm text-muted">
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && query && (
           <div className="max-h-[28rem] overflow-y-auto">
             {results.length === 0 ? (
               <div className="px-4 py-8 text-center text-muted">
@@ -154,11 +232,11 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
                         <div className="flex items-start justify-between gap-4">
                           <div className="min-w-0">
                             <div className="text-sm font-medium text-foreground">
-                              {item.title}
+                              {highlightText(item.title)}
                             </div>
                             {item.description && (
                               <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted">
-                                {item.description}
+                                {highlightText(item.description)}
                               </p>
                             )}
                           </div>
@@ -173,7 +251,7 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
                                 key={tag}
                                 className="rounded-full bg-accent-soft px-2 py-0.5 text-xs text-accent"
                               >
-                                {tag}
+                                {highlightText(tag)}
                               </span>
                             ))}
                           </div>
@@ -187,7 +265,7 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
           </div>
         )}
 
-        {!query && index.length > 0 && (
+        {!loading && !error && !query && index.length > 0 && (
           <div className="px-4 py-3 text-sm text-muted">
             共 {index.length} 篇文章，输入关键词搜索
           </div>

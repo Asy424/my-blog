@@ -6,6 +6,7 @@ import type { GitHubFile } from "@/lib/github-admin";
 interface PostMeta {
   title: string;
   date?: string;
+  tags?: string;
   isPublic?: boolean;
   series?: string;
 }

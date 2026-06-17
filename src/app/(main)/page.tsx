@@ -3,20 +3,13 @@ import PostCard from "@/components/PostCard";
 import Link from "next/link";
 import { getAllTags } from "@/lib/posts";
 import { getSeriesSummaries } from "@/lib/series";
+import { getSeriesClassName } from "@/lib/series-config";
 import { siteConfig } from "@/site.config";
 
 export const metadata = {
   alternates: {
     canonical: "/",
   },
-};
-
-/** 系列色辅助类映射（静态字符串，避免 Tailwind purge） */
-const seriesClass: Record<string, string> = {
-  codex: "s-codex",
-  "windows-setup": "s-windows",
-  "java-functional": "s-java",
-  "blog-building": "s-blog",
 };
 
 export default function Home() {
@@ -32,12 +25,10 @@ export default function Home() {
       <section className="relative grid gap-10 border-b border-border pb-12 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.6fr)] lg:items-end">
         {/* 背景装饰 —— 调到可感知 */}
         <div
-          className="pointer-events-none absolute -right-20 -top-20 h-96 w-96 rounded-full opacity-[0.12] dark:opacity-[0.09]"
-          style={{ background: "radial-gradient(circle, var(--accent) 0%, transparent 70%)" }}
+          className="hero-accent-glow pointer-events-none absolute -right-20 -top-20 h-96 w-96 rounded-full opacity-[0.12] dark:opacity-[0.09]"
         />
         <div
-          className="pointer-events-none absolute -bottom-10 -left-10 h-64 w-64 rounded-full opacity-[0.1] dark:opacity-[0.07]"
-          style={{ background: "radial-gradient(circle, var(--s-codex) 0%, transparent 70%)" }}
+          className="hero-series-glow pointer-events-none absolute -bottom-10 -left-10 h-64 w-64 rounded-full opacity-[0.1] dark:opacity-[0.07]"
         />
 
         <div className="animate-fade-in-up">
@@ -52,6 +43,7 @@ export default function Home() {
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link
+              suppressHydrationWarning
               href="/blog"
               className="rounded-lg bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-all hover:-translate-y-0.5 hover:bg-accent"
               style={{ boxShadow: "var(--shadow-soft)" }}
@@ -69,6 +61,7 @@ export default function Home() {
 
         {/* 统计卡片 */}
         <div
+          suppressHydrationWarning
           className="grid grid-cols-3 gap-3 rounded-xl border border-border bg-card/80 p-5 backdrop-blur-sm animate-fade-in-up animate-delay-2"
           style={{ boxShadow: "var(--shadow-soft)" }}
         >
@@ -105,9 +98,10 @@ export default function Home() {
           </div>
           <div className="series-rail">
             {series.map((item) => {
-              const cls = seriesClass[item.slug] ?? "";
+              const cls = getSeriesClassName(item);
               return (
                 <Link
+                  suppressHydrationWarning
                   key={item.slug}
                   href={`/series/${item.slug}`}
                   className={[
@@ -119,17 +113,19 @@ export default function Home() {
                   style={{ boxShadow: "var(--shadow-soft)" }}
                 >
                   <span
+                    suppressHydrationWarning
                     aria-hidden
                     className="mb-4 h-1.5 w-12 rounded-full"
-                    style={{ background: "var(--series)" }}
+                    style={{ backgroundColor: "var(--series)" }}
                   />
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="text-base font-semibold text-foreground transition-colors group-hover:text-accent">
                       {item.title}
                     </h3>
                     <span
+                      suppressHydrationWarning
                       className="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
-                      style={{ background: "var(--series-soft)", color: "var(--series)" }}
+                      style={{ backgroundColor: "var(--series-soft)", color: "var(--series)" }}
                     >
                       {item.postCount} 篇
                     </span>

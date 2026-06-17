@@ -79,6 +79,22 @@ export function getPostSeriesPosition(
   return { index: index + 1, total: posts.length, series };
 }
 
+export function getSeriesNeighbors(post: PostData): {
+  prev: PostData | null;
+  next: PostData | null;
+} {
+  const series = getSeriesForPost(post);
+  if (!series) return { prev: null, next: null };
+  const posts = getPostsBySeries(series);
+  const index = posts.findIndex((item) => item.slug === post.slug);
+  if (index === -1) return { prev: null, next: null };
+
+  return {
+    prev: index > 0 ? posts[index - 1] : null,
+    next: index < posts.length - 1 ? posts[index + 1] : null,
+  };
+}
+
 export function getSeriesSummaries(): SeriesSummary[] {
   const posts = getSortedPostsData();
   const summaries = new Map<string, SeriesSummary>();

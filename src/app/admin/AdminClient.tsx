@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import dynamic from "next/dynamic";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { GitHubFile } from "@/lib/github-admin";
 import {
   listPosts,
@@ -11,57 +10,25 @@ import {
 } from "@/lib/github-admin";
 import { withBasePath } from "@/site.config";
 import { createSeriesSlug, seriesDefinitions } from "@/lib/series-config";
+import {
+  normalizeSlug,
+  parseTagList,
+  todayString,
+  validatePostDraft,
+} from "@/lib/post-schema";
 import { useAuth } from "./hooks/useAuth";
 import { useImageUpload } from "./hooks/useImageUpload";
 import PostSidebar from "./components/PostSidebar";
 import TagInput from "./components/TagInput";
+import MediaLibrary from "./components/MediaLibrary";
 import StatusBar, { useToasts } from "./components/StatusBar";
-
-const MDEditor = dynamic(
-  async () => {
-    const [mod, cn] = await Promise.all([
-      import("@uiw/react-md-editor"),
-      import("@uiw/react-md-editor/commands-cn"),
-    ]);
-    const Editor = mod.default;
-    const { getCommands, getExtraCommands } = cn;
-    const commands = getCommands();
-    const extraCommands = getExtraCommands();
-
-    // 图片和链接命令在组件内通过 hooks 处理，这里保留默认行为
-    commands.push({
-      name: "center",
-      keyCommand: "center",
-      buttonProps: { "aria-label": "居中文字", title: "居中文字" },
-      icon: (
-        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M4 3h12v2H4V3zm2 4h8v2H6V7zm-2 4h12v2H4v-2zm2 4h8v2H6v-2z" />
-        </svg>
-      ),
-      execute: (_state: { selectedText: string }, api: { replaceSelection: (s: string) => void }) => {
-        const selected = _state.selectedText || "";
-        if (selected) {
-          api.replaceSelection(`<center>\n\n${selected}\n\n</center>`);
-        } else {
-          api.replaceSelection(`<center>\n\n\n\n</center>`);
-        }
-      },
-    });
-
-    return {
-      default: (props: Record<string, unknown>) => (
-        <Editor {...props} commands={commands} extraCommands={extraCommands} />
-      ),
-    };
-  },
-  { ssr: false }
-);
 
 const CUSTOM_SERIES_VALUE = "__custom";
 
 interface PostMeta {
   title: string;
   date?: string;
+  tags?: string;
   isPublic?: boolean;
   series?: string;
 }
@@ -98,17 +65,18 @@ function buildFrontmatter(
   isPublic: boolean,
   seriesSlug: string,
   seriesTitle: string,
-  date?: string
+  date?: string,
+  updated?: string
 ) {
   // 编辑已有文章时保留原发布日期；新建文章才用今天
-  const dateStr = date || new Date().toISOString().split("T")[0];
-  const clean = tags.replace(/[\[\]"']+/g, "");
-  const tagList = clean.split(/[,\s]+/).filter(Boolean);
+  const dateStr = date || todayString();
+  const tagList = parseTagList(tags);
   const tagsStr = tagList.map((t) => `"${t}"`).join(", ");
   const lines = [
     "---",
     `title: "${title}"`,
     `date: "${dateStr}"`,
+    updated && updated !== dateStr ? `updated: "${updated}"` : "",
     `tags: [${tagsStr}]`,
     seriesSlug ? `series: "${seriesSlug}"` : "",
     seriesTitle ? `seriesTitle: "${seriesTitle}"` : "",
@@ -124,19 +92,115 @@ function buildFrontmatter(
  * 纯中文标题返回空字符串，由调用方引导手动输入或用时间戳兜底。
  */
 function slugify(title: string) {
-  const cleaned = title
+  return normalizeSlug(
+    title
     .replace(/[^a-zA-Z0-9\s-]/g, " ")
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .toLowerCase()
-    .replace(/^-|-$/g, "");
-  return cleaned;
+  );
 }
 
 /** 纯中文/无英文标题的时间戳兜底 slug */
 function fallbackSlug() {
   return `post-${Date.now().toString(36)}`;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function renderInlineMarkdown(value: string) {
+  return escapeHtml(value)
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>");
+}
+
+function renderMarkdownPreview(markdown: string) {
+  const blocks: string[] = [];
+  const lines = markdown.split("\n");
+  let paragraph: string[] = [];
+  let list: string[] = [];
+  let code: string[] = [];
+  let inCode = false;
+
+  const flushParagraph = () => {
+    if (paragraph.length) {
+      blocks.push(`<p>${renderInlineMarkdown(paragraph.join(" "))}</p>`);
+      paragraph = [];
+    }
+  };
+  const flushList = () => {
+    if (list.length) {
+      blocks.push(`<ul>${list.map((item) => `<li>${renderInlineMarkdown(item)}</li>`).join("")}</ul>`);
+      list = [];
+    }
+  };
+  const flushCode = () => {
+    if (code.length) {
+      blocks.push(`<pre><code>${escapeHtml(code.join("\n"))}</code></pre>`);
+      code = [];
+    }
+  };
+
+  lines.forEach((line) => {
+    if (line.trim().startsWith("```")) {
+      if (inCode) {
+        flushCode();
+        inCode = false;
+      } else {
+        flushParagraph();
+        flushList();
+        inCode = true;
+      }
+      return;
+    }
+    if (inCode) {
+      code.push(line);
+      return;
+    }
+
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) {
+      flushParagraph();
+      flushList();
+      const level = heading[1].length;
+      blocks.push(`<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`);
+      return;
+    }
+
+    const item = line.match(/^\s*[-*]\s+(.+)$/);
+    if (item) {
+      flushParagraph();
+      list.push(item[1]);
+      return;
+    }
+
+    if (!line.trim()) {
+      flushParagraph();
+      flushList();
+      return;
+    }
+    paragraph.push(line.trim());
+  });
+
+  flushParagraph();
+  flushList();
+  flushCode();
+  return blocks.join("\n");
+}
+
+function MarkdownPreview({ content }: { content: string }) {
+  return (
+    <div
+      className="admin-markdown-preview prose"
+      dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(content || "预览会显示在这里。") }}
+    />
+  );
 }
 
 export default function AdminPage() {
@@ -151,37 +215,39 @@ export default function AdminPage() {
 
   // editor state
   const [title, setTitle] = useState("");
+  const [slugInput, setSlugInput] = useState("");
+  const [dateInput, setDateInput] = useState(todayString());
+  const [updatedInput, setUpdatedInput] = useState("");
   const [tags, setTags] = useState("");
   const [description, setDescription] = useState("");
   const [seriesMode, setSeriesMode] = useState("");
   const [customSeriesTitle, setCustomSeriesTitle] = useState("");
   const [content, setContent] = useState("");
+  const [editorMode, setEditorMode] = useState<"live" | "edit" | "preview">("live");
   const [isPublic, setIsPublic] = useState(true);
   const [editingFile, setEditingFile] = useState<GitHubFile | null>(null);
   const [originalDate, setOriginalDate] = useState<string>("");
+  const [publishIssues, setPublishIssues] = useState<string[]>([]);
+  const [lastBackupKey, setLastBackupKey] = useState("");
+  const [showMediaLibrary, setShowMediaLibrary] = useState(false);
 
   const [tokenInput, setTokenInput] = useState("");
-  const [darkEditor, setDarkEditor] = useState(false);
 
-  // detect theme for editor — subscribe to DOM class changes
-  useEffect(() => {
-    const root = document.documentElement;
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const getDark = () => root.classList.contains("dark") || mq.matches;
+  const tagSuggestions = useMemo(() => {
+    const set = new Set<string>();
+    Object.values(postMeta).forEach((meta) => {
+      if ("tags" in meta && typeof meta.tags === "string") {
+        parseTagList(meta.tags).forEach((tag) => set.add(tag));
+      }
+    });
+    parseTagList(tags).forEach((tag) => set.add(tag));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+  }, [postMeta, tags]);
 
-    // deferred initial sync to avoid set-state-in-effect
-    queueMicrotask(() => setDarkEditor(getDark()));
-
-    const observer = new MutationObserver(() => setDarkEditor(getDark()));
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-
-    const mqHandler = () => setDarkEditor(getDark());
-    mq.addEventListener("change", mqHandler);
-    return () => {
-      observer.disconnect();
-      mq.removeEventListener("change", mqHandler);
-    };
-  }, []);
+  const currentSlug = editingFile?.path.replace(/^posts\//, "").replace(/\.md$/, "")
+    || normalizeSlug(slugInput)
+    || "new";
+  const currentDraftKey = `admin-draft-${currentSlug}`;
 
   // load posts — 并发拉取所有文章内容
   const loadPosts = useCallback(async () => {
@@ -200,6 +266,7 @@ export default function AdminPage() {
             meta[file.path] = {
               title: fm.title || "",
               date: fm.date || "",
+              tags: fm.tags || "",
               isPublic: fm.public !== "false",
               series: fm.series || "",
             };
@@ -225,21 +292,20 @@ export default function AdminPage() {
   }, [isAuthenticated, token, loadPosts]);
 
   // draft management
-  const editorRef = useRef({ title, tags, description, seriesMode, customSeriesTitle, content });
+  const editorRef = useRef({ title, slugInput, dateInput, updatedInput, tags, description, seriesMode, customSeriesTitle, content, draftKey: currentDraftKey });
   const hasUnsavedChanges = useRef(false);
   const publishRef = useRef<() => void>(() => {});
 
   // 在 effect 中同步 ref（不在 render 期间更新 ref，符合 react-hooks/refs 规则）
   useEffect(() => {
-    editorRef.current = { title, tags, description, seriesMode, customSeriesTitle, content };
+    editorRef.current = { title, slugInput, dateInput, updatedInput, tags, description, seriesMode, customSeriesTitle, content, draftKey: currentDraftKey };
     hasUnsavedChanges.current =
       title !== "" || content !== "" || tags !== "" || description !== "";
     publishRef.current = handlePublish;
   });
 
   useEffect(() => {
-    const DRAFT_KEY = "admin-draft";
-    const saved = localStorage.getItem(DRAFT_KEY);
+    const saved = localStorage.getItem(currentDraftKey);
     if (saved && !title && !content) {
       try {
         const draft = JSON.parse(saved);
@@ -247,13 +313,16 @@ export default function AdminPage() {
           queueMicrotask(() => {
             if (confirm("检测到未保存的草稿，是否恢复？")) {
               setTitle(draft.title || "");
+              setSlugInput(draft.slugInput || "");
+              setDateInput(draft.dateInput || todayString());
+              setUpdatedInput(draft.updatedInput || "");
               setTags(draft.tags || "");
               setDescription(draft.description || "");
               setSeriesMode(draft.seriesMode || "");
               setCustomSeriesTitle(draft.customSeriesTitle || "");
               setContent(draft.content || "");
             } else {
-              localStorage.removeItem(DRAFT_KEY);
+              localStorage.removeItem(currentDraftKey);
             }
           });
         }
@@ -262,11 +331,11 @@ export default function AdminPage() {
     const timer = setInterval(() => {
       const d = editorRef.current;
       if (d.title || d.content) {
-        localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+        localStorage.setItem(d.draftKey, JSON.stringify(d));
       }
     }, 30000);
     return () => clearInterval(timer);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentDraftKey, content, title]);
 
   // beforeunload warning
   useEffect(() => {
@@ -298,6 +367,9 @@ export default function AdminPage() {
 
   function resetEditor() {
     setTitle("");
+    setSlugInput("");
+    setDateInput(todayString());
+    setUpdatedInput("");
     setTags("");
     setDescription("");
     setSeriesMode("");
@@ -306,6 +378,37 @@ export default function AdminPage() {
     setIsPublic(true);
     setEditingFile(null);
     setOriginalDate("");
+    setPublishIssues([]);
+    setLastBackupKey("");
+    setEditorMode("live");
+    setShowMediaLibrary(false);
+  }
+
+  function restoreLastBackup() {
+    if (!lastBackupKey) return;
+    const raw = localStorage.getItem(lastBackupKey);
+    if (!raw) {
+      addToast("info", "没有可恢复的保存前备份");
+      return;
+    }
+    try {
+      const backup = JSON.parse(raw) as { previousContent?: string };
+      if (!backup.previousContent) {
+        addToast("error", "备份内容不完整");
+        return;
+      }
+      const { data, body } = parseFrontmatter(backup.previousContent);
+      setTitle(data.title || "");
+      setDateInput(data.date || todayString());
+      setUpdatedInput(data.updated || "");
+      setTags(data.tags || "");
+      setDescription(data.description || "");
+      setIsPublic(data.public !== "false");
+      setContent(body.trimStart());
+      addToast("success", "已恢复最近一次保存前的内容");
+    } catch {
+      addToast("error", "备份解析失败");
+    }
   }
 
   async function handleSelectPost(file: GitHubFile) {
@@ -313,7 +416,11 @@ export default function AdminPage() {
     try {
       const { content: raw, sha } = await getPostContent(token, file.path);
       const { data, body } = parseFrontmatter(raw);
+      const slug = file.path.replace(/^posts\//, "").replace(/\.md$/, "");
       setTitle(data.title || file.name.replace(".md", ""));
+      setSlugInput(slug);
+      setDateInput(data.date || todayString());
+      setUpdatedInput(data.updated || "");
       setTags(Array.isArray(data.tags) ? data.tags.join(", ") : data.tags || "");
       setDescription(data.description || "");
       if (data.series) {
@@ -335,6 +442,8 @@ export default function AdminPage() {
       setContent(body.trimStart());
       setOriginalDate(data.date || "");
       setEditingFile({ ...file, sha });
+      setPublishIssues([]);
+      setLastBackupKey(`admin-last-content-${slug}`);
 
       const t = data.title || file.name.replace(".md", "");
       setPostTitles((prev) => {
@@ -350,8 +459,37 @@ export default function AdminPage() {
   }
 
   async function handlePublish() {
-    if (!title.trim()) {
-      addToast("error", "请输入文章标题");
+    const editingSlug = editingFile?.path.replace(/^posts\//, "").replace(/\.md$/, "");
+    const normalizedSlug = normalizeSlug(slugInput || slugify(title) || fallbackSlug());
+    const existingSlugs = posts.map((post) => post.name.replace(/\.md$/, ""));
+    const issues = validatePostDraft({
+      title,
+      slug: normalizedSlug,
+      date: dateInput,
+      updated: updatedInput,
+      tags,
+      description,
+      content,
+      isPublic,
+      existingSlugs,
+      editingSlug,
+    });
+
+    setPublishIssues(issues);
+    if (issues.length > 0) {
+      addToast("error", `发布前检查未通过：${issues[0]}`);
+      return;
+    }
+
+    const summary = [
+      editingFile ? "更新已有文章" : "发布新文章",
+      `slug: ${editingSlug || normalizedSlug}`,
+      `标签: ${parseTagList(tags).join(", ") || "无"}`,
+      `正文: ${content.trim().length} 字符`,
+      isPublic ? "状态: 公开" : "状态: 私密",
+    ].join("\n");
+
+    if (!confirm(`确认保存？\n\n${summary}`)) {
       return;
     }
 
@@ -380,7 +518,8 @@ export default function AdminPage() {
       isPublic,
       selectedSeriesSlug,
       selectedSeriesTitle,
-      originalDate || undefined
+      dateInput || originalDate || undefined,
+      editingFile ? updatedInput || todayString() : updatedInput || undefined
     );
     const fullContent = frontmatter + content.trimStart();
 
@@ -390,18 +529,23 @@ export default function AdminPage() {
         // 编辑已有文章：沿用原路径（不改 slug，避免断链）
         path = editingFile.path;
       } else {
-        // 新建文章：英文提取 → 手动输入 → 时间戳兜底
-        let slug = slugify(title);
-        if (!slug) {
-          const input = window.prompt(
-            "标题中没有可用的英文片段，请输入一个简短的英文 slug（如 stream-basics）：\n留空则使用系统自动生成的名称。"
-          );
-          slug = (input || "").trim().replace(/[^a-zA-Z0-9-]/g, "-").replace(/-+/g, "-").toLowerCase();
-        }
-        path = `posts/${slug || fallbackSlug()}.md`;
+        path = `posts/${normalizedSlug}.md`;
+      }
+      if (editingFile) {
+        localStorage.setItem(
+          `admin-last-content-${editingSlug}`,
+          JSON.stringify({
+            path,
+            content: frontmatter + content.trimStart(),
+            previousContent: (await getPostContent(token, editingFile.path)).content,
+            savedAt: new Date().toISOString(),
+          })
+        );
+        setLastBackupKey(`admin-last-content-${editingSlug}`);
       }
       await savePost(token, path, fullContent, editingFile?.sha);
       addToast("success", editingFile ? "文章已更新" : "文章已发布");
+      localStorage.removeItem(currentDraftKey);
       localStorage.removeItem("admin-draft");
       setPostTitles((prev) => ({ ...prev, [path]: title.trim() }));
       await loadPosts();
@@ -413,19 +557,23 @@ export default function AdminPage() {
     }
   }
 
-  async function handleImageInsert(file: File) {
-    const md = await upload(file);
-    if (!md) return;
+  function insertMarkdown(markdown: string) {
     const textarea = document.querySelector(
-      ".w-md-editor-text-input"
+      ".admin-editor-textarea"
     ) as HTMLTextAreaElement | null;
     const pos = textarea?.selectionStart;
     setContent((prev) => {
       if (pos != null) {
-        return prev.slice(0, pos) + md + prev.slice(pos);
+        return prev.slice(0, pos) + markdown + prev.slice(pos);
       }
-      return prev + md;
+      return prev + markdown;
     });
+  }
+
+  async function handleImageInsert(file: File) {
+    const md = await upload(file);
+    if (!md) return;
+    insertMarkdown(md);
     addToast("success", "图片已上传");
   }
 
@@ -488,8 +636,9 @@ export default function AdminPage() {
             输入 GitHub Personal Access Token 以访问编辑器
           </p>
           <div
+            suppressHydrationWarning
             className="text-xs mb-4 leading-relaxed rounded-lg p-3"
-            style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+            style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}
           >
             建议使用只授予当前仓库 contents 权限的最小权限 Token；Token 仅保存在当前浏览器会话中。
           </div>
@@ -530,10 +679,13 @@ export default function AdminPage() {
               {editingFile.name}
             </span>
           )}
-          {uploading && (
-            <span className="text-xs text-accent animate-pulse">上传中...</span>
-          )}
-        </div>
+            {uploading && (
+              <span className="text-xs text-accent animate-pulse">上传中...</span>
+            )}
+            <span className="text-xs text-muted">
+              草稿键: {currentSlug}
+            </span>
+          </div>
         <div className="flex items-center gap-2">
           <button
             onClick={resetEditor}
@@ -556,6 +708,20 @@ export default function AdminPage() {
               预览
             </button>
           )}
+          {editingFile && (
+            <button
+              onClick={restoreLastBackup}
+              className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-card-hover text-foreground transition-colors cursor-pointer"
+            >
+              恢复备份
+            </button>
+          )}
+          <button
+            onClick={() => setShowMediaLibrary((value) => !value)}
+            className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-card-hover text-foreground transition-colors cursor-pointer"
+          >
+            媒体库
+          </button>
           <button
             onClick={handlePublish}
             disabled={loading}
@@ -604,7 +770,12 @@ export default function AdminPage() {
             type="text"
             placeholder="输入文章标题..."
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              if (!editingFile && !slugInput) {
+                setSlugInput(slugify(e.target.value));
+              }
+            }}
             className="w-full px-6 py-4 text-2xl font-display font-normal bg-transparent border-b border-border outline-none placeholder-muted/50 text-foreground"
           />
 
@@ -612,6 +783,35 @@ export default function AdminPage() {
           <div className="px-6 py-3 border-b border-border space-y-2.5 text-sm">
             {/* 第一行：系列 + 公开开关 */}
             <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-xs text-muted">
+                Slug
+                <input
+                  type="text"
+                  value={slugInput}
+                  disabled={Boolean(editingFile)}
+                  onChange={(e) => setSlugInput(normalizeSlug(e.target.value))}
+                  placeholder="post-slug"
+                  className="w-40 rounded-md border border-border bg-card px-2 py-1.5 outline-none placeholder-muted text-foreground text-xs focus:border-accent disabled:opacity-60"
+                />
+              </label>
+              <label className="flex items-center gap-2 text-xs text-muted">
+                发布
+                <input
+                  type="date"
+                  value={dateInput}
+                  onChange={(e) => setDateInput(e.target.value)}
+                  className="rounded-md border border-border bg-card px-2 py-1.5 outline-none text-foreground text-xs focus:border-accent"
+                />
+              </label>
+              <label className="flex items-center gap-2 text-xs text-muted">
+                更新
+                <input
+                  type="date"
+                  value={updatedInput}
+                  onChange={(e) => setUpdatedInput(e.target.value)}
+                  className="rounded-md border border-border bg-card px-2 py-1.5 outline-none text-foreground text-xs focus:border-accent"
+                />
+              </label>
               <label className="flex items-center gap-2 text-xs text-muted">
                 系列
                 <select
@@ -665,6 +865,7 @@ export default function AdminPage() {
                     value={tags}
                     onChange={setTags}
                     placeholder="回车添加"
+                    suggestions={tagSuggestions}
                   />
                 </div>
               </label>
@@ -679,19 +880,73 @@ export default function AdminPage() {
                 />
               </label>
             </div>
+          {publishIssues.length > 0 && (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+                {publishIssues.slice(0, 3).map((issue) => (
+                  <div key={issue}>· {issue}</div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Markdown editor */}
-          <div
-            className="flex-1 overflow-hidden"
-            data-color-mode={darkEditor ? "dark" : "light"}
-          >
-            <MDEditor
-              value={content}
-              onChange={(val: string) => setContent(val || "")}
-              height="100%"
-              preview="live"
+          {showMediaLibrary && (
+            <MediaLibrary
+              token={token}
+              onInsert={(markdown) => {
+                insertMarkdown(markdown);
+                addToast("success", "已插入图片引用");
+              }}
+              onClose={() => setShowMediaLibrary(false)}
             />
+          )}
+
+          {/* Markdown editor */}
+          <div className="flex items-center justify-between border-b border-border px-6 py-2">
+            <div className="text-xs text-muted">
+              {editorMode === "preview" ? "本地预览，不会发布私密内容" : "Markdown 编辑器"}
+            </div>
+            <div className="flex rounded-md border border-border bg-card p-0.5">
+              {[
+                ["live", "分屏"],
+                ["edit", "编辑"],
+                ["preview", "预览"],
+              ].map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setEditorMode(mode as typeof editorMode)}
+                  className={[
+                    "rounded px-2.5 py-1 text-xs transition-colors",
+                    editorMode === mode
+                      ? "bg-foreground text-background"
+                      : "text-muted hover:text-foreground",
+                  ].join(" ")}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div
+            className={[
+              "grid flex-1 overflow-hidden bg-background",
+              editorMode === "live" ? "grid-cols-2" : "grid-cols-1",
+            ].join(" ")}
+          >
+            {editorMode !== "preview" && (
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                spellCheck={false}
+                className="admin-editor-textarea h-full min-h-0 w-full resize-none border-0 bg-background p-6 font-mono text-sm leading-7 text-foreground outline-none placeholder-muted"
+                placeholder="在这里写 Markdown..."
+              />
+            )}
+            {editorMode !== "edit" && (
+              <div className="h-full min-h-0 overflow-auto border-l border-border bg-card/40 p-6">
+                <MarkdownPreview content={content} />
+              </div>
+            )}
           </div>
         </main>
       </div>

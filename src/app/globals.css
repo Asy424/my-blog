@@ -8,8 +8,8 @@
   --color-muted: var(--muted);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
-  --font-sans: var(--font-zh), "Sora", system-ui, -apple-system, sans-serif;
-  --font-display: var(--font-display), "DM Serif Display", Georgia, "Times New Roman", serif;
+  --font-sans: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, -apple-system, sans-serif;
+  --font-display: Georgia, "Times New Roman", "Songti SC", "SimSun", serif;
   --font-mono: "JetBrains Mono", "Fira Code", "SFMono-Regular", Consolas, monospace;
 }
 
@@ -242,6 +242,15 @@ body {
   box-shadow: var(--shadow-soft);
 }
 
+.article-lightbox-image {
+  cursor: zoom-in;
+}
+
+.article-lightbox-image:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
 .prose p:has(img) {
   text-align: center;
 }
@@ -346,6 +355,12 @@ body {
   transition: opacity 0.2s, background 0.2s;
 }
 
+.copy-button:focus-visible {
+  opacity: 1;
+  outline: 2px solid #e5e7eb;
+  outline-offset: 2px;
+}
+
 /* 页面入场动画 */
 @keyframes fadeInUp {
   from {
@@ -390,6 +405,30 @@ body {
   border-radius: 3px;
 }
 
+.hero-accent-glow {
+  background-image: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+}
+
+.hero-series-glow {
+  background-image: radial-gradient(circle, var(--s-codex) 0%, transparent 70%);
+}
+
+.series-featured-strip {
+  background-image: linear-gradient(90deg, var(--series), color-mix(in srgb, var(--series) 50%, transparent));
+}
+
+.post-card-glow {
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--accent) 18%, transparent), transparent 70%);
+}
+
+.series-banner-soft {
+  background-image: linear-gradient(120deg, var(--series-soft), color-mix(in srgb, var(--series) 28%, var(--card)));
+}
+
+.series-detail-banner {
+  background-image: linear-gradient(120deg, var(--series-soft), color-mix(in srgb, var(--series) 18%, var(--card)));
+}
+
 /* 阅读进度条 */
 .reading-progress {
   position: fixed;
@@ -406,4 +445,19 @@ body {
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation-duration: 0.3s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .animate-fade-in-up {
+    animation: none !important;
+  }
 }

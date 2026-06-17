@@ -49,7 +49,7 @@ export default function Header() {
               className="p-2 rounded-lg text-muted hover:bg-card-hover hover:text-foreground transition-colors cursor-pointer"
               aria-label="搜索"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg suppressHydrationWarning className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </button>
@@ -63,7 +63,7 @@ export default function Header() {
               className="p-2 rounded-lg text-muted hover:bg-card-hover cursor-pointer"
               aria-label="搜索"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg suppressHydrationWarning className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </button>
@@ -73,7 +73,7 @@ export default function Header() {
               className="p-2 rounded-lg text-muted hover:bg-card-hover cursor-pointer"
               aria-label="菜单"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg suppressHydrationWarning className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 {menuOpen ? (
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
                 ) : (

@@ -13,7 +13,9 @@ export default function CodeBlock() {
 
       const button = document.createElement("button");
       button.className = "copy-button";
+      button.type = "button";
       button.textContent = "复制";
+      button.setAttribute("aria-label", "复制代码块内容");
 
       const showButton = () => {
         button.style.opacity = "1";
@@ -25,15 +27,19 @@ export default function CodeBlock() {
         try {
           await navigator.clipboard.writeText(codeBlock.textContent || "");
           button.textContent = "已复制";
+          button.setAttribute("aria-label", "代码已复制");
           button.style.background = "rgba(34, 197, 94, 0.3)";
           window.setTimeout(() => {
             button.textContent = "复制";
+            button.setAttribute("aria-label", "复制代码块内容");
             button.style.background = "rgba(255, 255, 255, 0.1)";
           }, 2000);
         } catch {
           button.textContent = "复制失败";
+          button.setAttribute("aria-label", "复制代码失败");
           window.setTimeout(() => {
             button.textContent = "复制";
+            button.setAttribute("aria-label", "复制代码块内容");
           }, 2000);
         }
       };

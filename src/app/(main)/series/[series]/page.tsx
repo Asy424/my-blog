@@ -5,15 +5,8 @@ import {
   getSeriesBySlug,
   seriesList,
 } from "@/lib/series";
+import { getSeriesClassName } from "@/lib/series-config";
 import { siteConfig } from "@/site.config";
-
-/** 系列色辅助类映射（静态字符串，避免 Tailwind purge） */
-const seriesClass: Record<string, string> = {
-  codex: "s-codex",
-  "windows-setup": "s-windows",
-  "java-functional": "s-java",
-  "blog-building": "s-blog",
-};
 
 interface SeriesDetailPageProps {
   params: Promise<{ series: string }>;
@@ -56,25 +49,25 @@ export default async function SeriesDetailPage({ params }: SeriesDetailPageProps
   }
 
   const posts = getPostsBySeries(series);
-  const cls = seriesClass[series.slug] ?? "";
+  const cls = getSeriesClassName(series);
 
   return (
     <div className={["mx-auto max-w-5xl px-4 py-12", cls].filter(Boolean).join(" ")}>
       {/* 系列色 banner header */}
       <header
-        className="overflow-hidden rounded-xl border border-border animate-fade-in-up"
+        suppressHydrationWarning
+        className="series-detail-banner overflow-hidden rounded-xl border border-border animate-fade-in-up"
         style={{
           boxShadow: "var(--shadow-soft)",
-          background:
-            "linear-gradient(120deg, var(--series-soft), color-mix(in srgb, var(--series) 18%, var(--card)))",
         }}
       >
         <div className="px-6 py-8 sm:px-8">
-          <div className="flex items-center gap-2 text-sm font-medium" style={{ color: "var(--series)" }}>
+          <div suppressHydrationWarning className="flex items-center gap-2 text-sm font-medium" style={{ color: "var(--series)" }}>
             <span
+              suppressHydrationWarning
               aria-hidden
               className="h-2 w-2 rounded-full"
-              style={{ background: "var(--series)" }}
+              style={{ backgroundColor: "var(--series)" }}
             />
             阅读路线
           </div>
@@ -86,8 +79,9 @@ export default async function SeriesDetailPage({ params }: SeriesDetailPageProps
           </p>
           <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-muted">
             <span
+              suppressHydrationWarning
               className="inline-flex rounded-full px-2.5 py-1 text-xs font-medium"
-              style={{ background: "var(--card)", color: "var(--series)" }}
+              style={{ backgroundColor: "var(--card)", color: "var(--series)" }}
             >
               共 {posts.length} 篇
             </span>
@@ -111,6 +105,7 @@ export default async function SeriesDetailPage({ params }: SeriesDetailPageProps
               className={`relative animate-fade-in-up animate-delay-${Math.min(i + 1, 5)}`}
             >
               <Link
+                suppressHydrationWarning
                 href={`/blog/${post.slug}`}
                 className="group flex gap-4 rounded-xl border border-border bg-card p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-accent"
                 style={{ boxShadow: "var(--shadow-soft)" }}
@@ -118,17 +113,19 @@ export default async function SeriesDetailPage({ params }: SeriesDetailPageProps
                 {/* 步骤编号 */}
                 <div className="flex flex-col items-center">
                   <span
+                    suppressHydrationWarning
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-display text-lg font-semibold"
-                    style={{ background: "var(--series-soft)", color: "var(--series)" }}
+                    style={{ backgroundColor: "var(--series-soft)", color: "var(--series)" }}
                   >
                     {i + 1}
                   </span>
                   {/* 连接线（非最后一项） */}
                   {i < posts.length - 1 && (
                     <span
+                      suppressHydrationWarning
                       aria-hidden
                       className="mt-1 w-px flex-1"
-                      style={{ background: "var(--series-soft)", minHeight: "1.5rem" }}
+                      style={{ backgroundColor: "var(--series-soft)", minHeight: "1.5rem" }}
                     />
                   )}
                 </div>
