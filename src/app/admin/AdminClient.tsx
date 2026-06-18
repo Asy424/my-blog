@@ -25,6 +25,8 @@ import StatusBar, { useToasts } from "./components/StatusBar";
 
 const CUSTOM_SERIES_VALUE = "__custom";
 
+type DraftStatus = "clean" | "dirty" | "autosaved" | "published";
+
 interface PostMeta {
   title: string;
   date?: string;
@@ -101,6 +103,21 @@ function slugify(title: string) {
 /** 纯中文/无英文标题的时间戳兜底 slug */
 function fallbackSlug() {
   return `post-${Date.now().toString(36)}`;
+}
+
+function draftSignature(input: {
+  title: string;
+  slugInput: string;
+  dateInput: string;
+  updatedInput: string;
+  tags: string;
+  description: string;
+  seriesMode: string;
+  customSeriesTitle: string;
+  content: string;
+  isPublic: boolean;
+}) {
+  return JSON.stringify(input);
 }
 
 function escapeHtml(value: string) {
@@ -257,6 +274,9 @@ export default function AdminPage() {
   const [publishIssues, setPublishIssues] = useState<string[]>([]);
   const [lastBackupKey, setLastBackupKey] = useState("");
   const [showMediaLibrary, setShowMediaLibrary] = useState(false);
+  const [draftStatus, setDraftStatus] = useState<DraftStatus>("clean");
+  const [lastDraftSavedAt, setLastDraftSavedAt] = useState("");
+  const [savedDraftSignature, setSavedDraftSignature] = useState("");
 
   const [tokenInput, setTokenInput] = useState("");
 
@@ -275,6 +295,108 @@ export default function AdminPage() {
     || normalizeSlug(slugInput)
     || "new";
   const currentDraftKey = `admin-draft-${currentSlug}`;
+
+  // draft management
+  const editorRef = useRef({ title, slugInput, dateInput, updatedInput, tags, description, seriesMode, customSeriesTitle, content, isPublic, draftKey: currentDraftKey });
+  const hasUnsavedChanges = useRef(false);
+  const publishRef = useRef<() => void>(() => {});
+  const baselineDraft = useRef("");
+
+  const currentDraftSignature = useMemo(() => draftSignature({
+    title,
+    slugInput,
+    dateInput,
+    updatedInput,
+    tags,
+    description,
+    seriesMode,
+    customSeriesTitle,
+    content,
+    isPublic,
+  }), [
+    title,
+    slugInput,
+    dateInput,
+    updatedInput,
+    tags,
+    description,
+    seriesMode,
+    customSeriesTitle,
+    content,
+    isPublic,
+  ]);
+
+  const draftIssues = useMemo(() => {
+    if (!title && !content && !tags && !description) return [];
+
+    const editingSlug = editingFile?.path.replace(/^posts\//, "").replace(/\.md$/, "");
+    const normalizedSlug = normalizeSlug(slugInput || slugify(title) || fallbackSlug());
+    const issues = validatePostDraft({
+      title,
+      slug: normalizedSlug,
+      date: dateInput,
+      updated: updatedInput,
+      tags,
+      description,
+      content,
+      isPublic,
+      existingSlugs: posts.map((post) => post.name.replace(/\.md$/, "")),
+      editingSlug,
+    });
+
+    if (seriesMode === CUSTOM_SERIES_VALUE && !customSeriesTitle.trim()) {
+      issues.push("自定义系列需要填写系列名称");
+    }
+
+    return issues;
+  }, [
+    title,
+    content,
+    tags,
+    description,
+    editingFile,
+    slugInput,
+    dateInput,
+    updatedInput,
+    isPublic,
+    posts,
+    seriesMode,
+    customSeriesTitle,
+  ]);
+
+  const draftVisualStatus = useMemo<DraftStatus>(() => {
+    const empty = !title && !content && !tags && !description;
+    const matchesBaseline = Boolean(baselineDraft.current && currentDraftSignature === baselineDraft.current);
+    const matchesAutosave = Boolean(savedDraftSignature && currentDraftSignature === savedDraftSignature);
+
+    if (empty || matchesBaseline) return "clean";
+    if (draftStatus === "published" && matchesBaseline) return "published";
+    if (draftStatus === "autosaved" && matchesAutosave) return "autosaved";
+    return "dirty";
+  }, [
+    draftStatus,
+    title,
+    content,
+    tags,
+    description,
+    currentDraftSignature,
+    savedDraftSignature,
+  ]);
+
+  const draftStatusText = useMemo(() => {
+    if (loading) return "处理中";
+    if (draftStatus === "published" && draftVisualStatus === "clean") return "已发布";
+    if (draftVisualStatus === "autosaved") {
+      return lastDraftSavedAt ? `已自动保存 ${lastDraftSavedAt}` : "已自动保存";
+    }
+    if (draftVisualStatus === "dirty") return "有未保存改动";
+    return "无改动";
+  }, [
+    draftStatus,
+    draftVisualStatus,
+    lastDraftSavedAt,
+    loading,
+  ]);
 
   // load posts — 并发拉取所有文章内容
   const loadPosts = useCallback(async () => {
@@ -318,16 +440,13 @@ export default function AdminPage() {
     }
   }, [isAuthenticated, token, loadPosts]);
 
-  // draft management
-  const editorRef = useRef({ title, slugInput, dateInput, updatedInput, tags, description, seriesMode, customSeriesTitle, content, draftKey: currentDraftKey });
-  const hasUnsavedChanges = useRef(false);
-  const publishRef = useRef<() => void>(() => {});
-
   // 在 effect 中同步 ref（不在 render 期间更新 ref，符合 react-hooks/refs 规则）
   useEffect(() => {
-    editorRef.current = { title, slugInput, dateInput, updatedInput, tags, description, seriesMode, customSeriesTitle, content, draftKey: currentDraftKey };
-    hasUnsavedChanges.current =
-      title !== "" || content !== "" || tags !== "" || description !== "";
+    editorRef.current = { title, slugInput, dateInput, updatedInput, tags, description, seriesMode, customSeriesTitle, content, isPublic, draftKey: currentDraftKey };
+    hasUnsavedChanges.current = Boolean(
+      (title || content || tags || description) &&
+      (!baselineDraft.current || currentDraftSignature !== baselineDraft.current)
+    );
     publishRef.current = handlePublish;
   });
 
@@ -359,6 +478,12 @@ export default function AdminPage() {
       const d = editorRef.current;
       if (d.title || d.content) {
         localStorage.setItem(d.draftKey, JSON.stringify(d));
+        setSavedDraftSignature(draftSignature(d));
+        setDraftStatus("autosaved");
+        setLastDraftSavedAt(new Date().toLocaleTimeString("zh-CN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }));
       }
     }, 30000);
     return () => clearInterval(timer);
@@ -393,6 +518,7 @@ export default function AdminPage() {
   }, [uploadError, addToast]);
 
   function resetEditor() {
+    baselineDraft.current = "";
     setTitle("");
     setSlugInput("");
     setDateInput(todayString());
@@ -409,6 +535,9 @@ export default function AdminPage() {
     setLastBackupKey("");
     setEditorMode("live");
     setShowMediaLibrary(false);
+    setDraftStatus("clean");
+    setLastDraftSavedAt("");
+    setSavedDraftSignature("");
   }
 
   function restoreLastBackup() {
@@ -444,37 +573,59 @@ export default function AdminPage() {
       const { content: raw, sha } = await getPostContent(token, file.path);
       const { data, body } = parseFrontmatter(raw);
       const slug = file.path.replace(/^posts\//, "").replace(/\.md$/, "");
-      setTitle(data.title || file.name.replace(".md", ""));
-      setSlugInput(slug);
-      setDateInput(data.date || todayString());
-      setUpdatedInput(data.updated || "");
-      setTags(Array.isArray(data.tags) ? data.tags.join(", ") : data.tags || "");
-      setDescription(data.description || "");
+      const nextTitle = data.title || file.name.replace(".md", "");
+      const nextDate = data.date || todayString();
+      const nextUpdated = data.updated || "";
+      const nextTags = Array.isArray(data.tags) ? data.tags.join(", ") : data.tags || "";
+      const nextDescription = data.description || "";
+      const nextContent = body.trimStart();
+      let nextSeriesMode = "";
+      let nextCustomSeriesTitle = "";
       if (data.series) {
         const known = seriesDefinitions.find(
           (s) => s.slug === data.series || s.title === data.series
         );
         if (known) {
-          setSeriesMode(known.slug);
-          setCustomSeriesTitle("");
+          nextSeriesMode = known.slug;
         } else {
-          setSeriesMode(CUSTOM_SERIES_VALUE);
-          setCustomSeriesTitle(data.seriesTitle || data.series);
+          nextSeriesMode = CUSTOM_SERIES_VALUE;
+          nextCustomSeriesTitle = data.seriesTitle || data.series;
         }
-      } else {
-        setSeriesMode("");
-        setCustomSeriesTitle("");
       }
-      setIsPublic(data.public !== "false");
-      setContent(body.trimStart());
+      const nextIsPublic = data.public !== "false";
+
+      setTitle(nextTitle);
+      setSlugInput(slug);
+      setDateInput(nextDate);
+      setUpdatedInput(nextUpdated);
+      setTags(nextTags);
+      setDescription(nextDescription);
+      setSeriesMode(nextSeriesMode);
+      setCustomSeriesTitle(nextCustomSeriesTitle);
+      setIsPublic(nextIsPublic);
+      setContent(nextContent);
       setOriginalDate(data.date || "");
       setEditingFile({ ...file, sha });
       setPublishIssues([]);
       setLastBackupKey(`admin-last-content-${slug}`);
+      baselineDraft.current = draftSignature({
+        title: nextTitle,
+        slugInput: slug,
+        dateInput: nextDate,
+        updatedInput: nextUpdated,
+        tags: nextTags,
+        description: nextDescription,
+        seriesMode: nextSeriesMode,
+        customSeriesTitle: nextCustomSeriesTitle,
+        content: nextContent,
+        isPublic: nextIsPublic,
+      });
+      setDraftStatus("clean");
+      setLastDraftSavedAt("");
+      setSavedDraftSignature("");
 
-      const t = data.title || file.name.replace(".md", "");
       setPostTitles((prev) => {
-        const next = { ...prev, [file.path]: t };
+        const next = { ...prev, [file.path]: nextTitle };
         return next;
       });
     } catch (e: unknown) {
@@ -488,19 +639,7 @@ export default function AdminPage() {
   async function handlePublish() {
     const editingSlug = editingFile?.path.replace(/^posts\//, "").replace(/\.md$/, "");
     const normalizedSlug = normalizeSlug(slugInput || slugify(title) || fallbackSlug());
-    const existingSlugs = posts.map((post) => post.name.replace(/\.md$/, ""));
-    const issues = validatePostDraft({
-      title,
-      slug: normalizedSlug,
-      date: dateInput,
-      updated: updatedInput,
-      tags,
-      description,
-      content,
-      isPublic,
-      existingSlugs,
-      editingSlug,
-    });
+    const issues = draftIssues;
 
     setPublishIssues(issues);
     if (issues.length > 0) {
@@ -575,6 +714,13 @@ export default function AdminPage() {
       localStorage.removeItem(currentDraftKey);
       localStorage.removeItem("admin-draft");
       setPostTitles((prev) => ({ ...prev, [path]: title.trim() }));
+      baselineDraft.current = currentDraftSignature;
+      setDraftStatus("published");
+      setSavedDraftSignature(currentDraftSignature);
+      setLastDraftSavedAt(new Date().toLocaleTimeString("zh-CN", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }));
       await loadPosts();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "保存失败";
@@ -601,7 +747,7 @@ export default function AdminPage() {
     const md = await upload(file);
     if (!md) return;
     insertMarkdown(md);
-    addToast("success", "图片已上传");
+    addToast("success", "图片已上传并插入 Markdown");
   }
 
   function handlePaste(e: React.ClipboardEvent) {
@@ -711,6 +857,18 @@ export default function AdminPage() {
             )}
             <span className="text-xs text-muted">
               草稿键: {currentSlug}
+            </span>
+            <span
+              className={[
+                "rounded-full px-2 py-0.5 text-xs",
+                draftVisualStatus === "dirty"
+                  ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                  : draftStatus === "published" && draftVisualStatus === "clean"
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                    : "bg-accent-soft text-muted",
+              ].join(" ")}
+            >
+              {draftStatusText}
             </span>
           </div>
         <div className="flex items-center gap-2">
@@ -907,13 +1065,33 @@ export default function AdminPage() {
                 />
               </label>
             </div>
-          {publishIssues.length > 0 && (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
-                {publishIssues.slice(0, 3).map((issue) => (
-                  <div key={issue}>· {issue}</div>
-                ))}
+            <div
+              className={[
+                "rounded-md border px-3 py-2 text-xs",
+                draftIssues.length > 0
+                  ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200",
+              ].join(" ")}
+            >
+              <div className="font-medium">
+                {draftIssues.length > 0
+                  ? `发布前检查：${draftIssues.length} 个问题`
+                  : "发布前检查：可以保存"}
               </div>
-            )}
+              {draftIssues.length > 0 && (
+                <div className="mt-1 space-y-0.5">
+                  {draftIssues.slice(0, 4).map((issue) => (
+                    <div key={issue}>· {issue}</div>
+                  ))}
+                  {draftIssues.length > 4 && (
+                    <div>· 还有 {draftIssues.length - 4} 个问题</div>
+                  )}
+                </div>
+              )}
+              {publishIssues.length > 0 && draftIssues.length === 0 && (
+                <div className="mt-1">上一次检查问题已修复。</div>
+              )}
+            </div>
           </div>
 
           {showMediaLibrary && (

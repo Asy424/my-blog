@@ -10,6 +10,7 @@ interface SearchIndex {
   slug: string;
   title: string;
   description: string;
+  body?: string;
   tags: string;
   date: string;
 }
@@ -49,7 +50,12 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
         setIndex(data);
         setFuse(
           new Fuse(data, {
-            keys: ["title", "description", "tags"],
+            keys: [
+              { name: "title", weight: 0.5 },
+              { name: "tags", weight: 0.25 },
+              { name: "description", weight: 0.15 },
+              { name: "body", weight: 0.1 },
+            ],
             threshold: 0.35,
           })
         );
@@ -161,6 +167,10 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
     );
   }
 
+  function resultExcerpt(item: SearchIndex) {
+    return item.description || item.body || "";
+  }
+
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh]">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -234,9 +244,9 @@ function SearchDialogContent({ onClose }: Pick<SearchDialogProps, "onClose">) {
                             <div className="text-sm font-medium text-foreground">
                               {highlightText(item.title)}
                             </div>
-                            {item.description && (
+                            {resultExcerpt(item) && (
                               <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted">
-                                {highlightText(item.description)}
+                                {highlightText(resultExcerpt(item))}
                               </p>
                             )}
                           </div>

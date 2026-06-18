@@ -17,7 +17,8 @@ export function useImageUpload(token: string) {
       setUploadError("");
       try {
         const { url } = await uploadImage(token, file);
-        return `\n![${file.name}](${url})\n`;
+        const alt = file.name.replace(/\.[^.]+$/, "");
+        return `\n![${alt}](${url})\n`;
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "上传失败";
         setUploadError(msg);

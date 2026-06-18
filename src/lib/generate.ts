@@ -9,14 +9,18 @@ import { siteConfig } from "../site.config";
 
 export function generateSearchIndex() {
   const posts = getSortedPostsData();
-  const searchIndex = posts.map((post) => ({
-    slug: post.slug,
-    title: post.title,
-    description: post.description,
-    tags: post.tags.join(", "),
-    date: post.date,
-    updated: post.updated || post.date,
-  }));
+  const searchIndex = posts.map((post) => {
+    const fullPost = getPostBySlug(post.slug);
+    return {
+      slug: post.slug,
+      title: post.title,
+      description: post.description,
+      body: createSearchExcerpt(fullPost?.content || ""),
+      tags: post.tags.join(", "),
+      date: post.date,
+      updated: post.updated || post.date,
+    };
+  });
 
   const outputPath = path.join(process.cwd(), "public", "search-index.json");
   fs.writeFileSync(outputPath, JSON.stringify(searchIndex), "utf8");
@@ -80,6 +84,20 @@ function formatRssDate(date: string, slug: string): string {
 
 function renderMarkdown(markdown: string): string {
   return String(remark().use(remarkGfm).use(remarkHtml).processSync(markdown));
+}
+
+function createSearchExcerpt(markdown: string): string {
+  return markdown
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, " ")
+    .replace(/\[[^\]]+\]\([^)]+\)/g, (match) => {
+      const text = match.match(/^\[([^\]]+)\]/);
+      return text?.[1] || " ";
+    })
+    .replace(/[#>*_`~|{}\[\]()-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 360);
 }
 
 function absolutizeUrls(html: string): string {
