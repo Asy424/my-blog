@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import matter from "gray-matter";
 import { siteConfig } from "../src/site.config";
 import { isValidDateString } from "../src/lib/post-schema";
+import { createSeriesSlug, seriesDefinitions } from "../src/lib/series-config";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.join(__dirname, "..");
@@ -121,6 +122,41 @@ function validateLinks(fileName, content) {
   }
 }
 
+function validateSeries(fileName, data) {
+  if (data.series !== undefined && typeof data.series !== "string") {
+    addError(fileName, "series must be a string");
+    return;
+  }
+
+  if (data.seriesTitle !== undefined && typeof data.seriesTitle !== "string") {
+    addError(fileName, "seriesTitle must be a string");
+    return;
+  }
+
+  if (typeof data.series !== "string") return;
+
+  const series = data.series.trim();
+  if (!series) {
+    addError(fileName, "series must not be empty");
+    return;
+  }
+
+  const knownSeries = seriesDefinitions.some(
+    (item) => item.slug === series || item.title === series
+  );
+  if (knownSeries) return;
+
+  const title = typeof data.seriesTitle === "string" ? data.seriesTitle.trim() : "";
+  if (!title) {
+    addError(fileName, "custom series requires a non-empty seriesTitle");
+    return;
+  }
+
+  if (series !== createSeriesSlug(title)) {
+    addWarning(fileName, `series does not match generated seriesTitle slug: ${series}`);
+  }
+}
+
 const files = fs
   .readdirSync(postsDir)
   .filter((fileName) => fileName.endsWith(".md"))
@@ -168,6 +204,7 @@ for (const fileName of files) {
     addError(fileName, "public 必须是布尔值");
   }
 
+  validateSeries(fileName, data);
   validateImages(fileName, content);
 }
 

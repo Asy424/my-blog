@@ -49,6 +49,15 @@ interface GitHubError {
   message?: string;
 }
 
+async function githubErrorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    const err = (await res.json()) as GitHubError;
+    return err.message ? `${fallback}: ${err.message}` : `${fallback}: ${res.status}`;
+  } catch {
+    return `${fallback}: ${res.status}`;
+  }
+}
+
 function isGitHubFile(file: unknown): file is GitHubFile {
   return (
     typeof file === "object" &&
@@ -75,7 +84,7 @@ export async function listPosts(token: string): Promise<GitHubFile[]> {
     `${API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/posts`,
     { headers: headers(token) }
   );
-  if (!res.ok) throw new Error("获取文章列表失败: " + res.status);
+  if (!res.ok) throw new Error(await githubErrorMessage(res, "获取文章列表失败"));
   const data = (await res.json()) as unknown;
   return Array.isArray(data)
     ? data.filter((file): file is GitHubFile => isGitHubFile(file) && file.name.endsWith(".md"))
@@ -89,7 +98,7 @@ export async function listImages(token: string): Promise<GitHubImageFile[]> {
       { headers: headers(token) }
     );
     if (res.status === 404) return [];
-    if (!res.ok) throw new Error("获取媒体库失败: " + res.status);
+    if (!res.ok) throw new Error(await githubErrorMessage(res, "获取媒体库失败"));
 
     const data = (await res.json()) as unknown;
     if (!Array.isArray(data)) return [];
@@ -129,7 +138,7 @@ export async function getPostContent(
     `${API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}/contents/${path}`,
     { headers: headers(token) }
   );
-  if (!res.ok) throw new Error("获取文章失败: " + res.status);
+  if (!res.ok) throw new Error(await githubErrorMessage(res, "获取文章失败"));
   const data = (await res.json()) as GitHubContentFile;
   const bytes = Uint8Array.from(atob(data.content || ""), (c) => c.charCodeAt(0));
   const content = new TextDecoder("utf-8").decode(bytes);
@@ -174,8 +183,7 @@ export async function savePost(
     if (res.status === 409) {
       throw new Error("文件已被其他方式修改，请刷新文章列表后重新编辑，避免覆盖他人改动");
     }
-    const err = (await res.json()) as GitHubError;
-    throw new Error(err.message || "保存失败: " + res.status);
+    throw new Error(await githubErrorMessage(res, "保存失败"));
   }
 }
 
@@ -193,8 +201,7 @@ export async function deletePost(
     }
   );
   if (!res.ok) {
-    const err = (await res.json()) as GitHubError;
-    throw new Error(err.message || "删除失败: " + res.status);
+    throw new Error(await githubErrorMessage(res, "删除失败"));
   }
 }
 
@@ -205,6 +212,8 @@ export async function deletePost(
 async function compressImage(file: File, maxWidth = 1200): Promise<{ blob: Blob; mime: string }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    const releaseObjectUrl = () => URL.revokeObjectURL(objectUrl);
     img.onload = () => {
       const w = Math.min(img.width, maxWidth);
       const h = Math.round((img.height * w) / img.width);
@@ -220,6 +229,7 @@ async function compressImage(file: File, maxWidth = 1200): Promise<{ blob: Blob;
 
       canvas.toBlob(
         (blob) => {
+          releaseObjectUrl();
           if (blob) resolve({ blob, mime: outputType });
           else reject(new Error("图片压缩失败"));
         },
@@ -227,8 +237,11 @@ async function compressImage(file: File, maxWidth = 1200): Promise<{ blob: Blob;
         quality
       );
     };
-    img.onerror = () => reject(new Error("图片加载失败"));
-    img.src = URL.createObjectURL(file);
+    img.onerror = () => {
+      releaseObjectUrl();
+      reject(new Error("图片加载失败"));
+    };
+    img.src = objectUrl;
   });
 }
 
@@ -264,8 +277,7 @@ export async function uploadImage(
   );
 
   if (!res.ok) {
-    const err = (await res.json()) as GitHubError;
-    throw new Error(err.message || "图片上传失败: " + res.status);
+    throw new Error(await githubErrorMessage(res, "图片上传失败"));
   }
 
   return {
@@ -283,7 +295,7 @@ export function verifyToken(token: string): Promise<boolean> {
       });
       if (!repoRes.ok) return false;
       const repo = (await repoRes.json()) as { permissions?: { push?: boolean } };
-      return repo.permissions?.push !== false;
+      return repo.permissions?.push === true;
     })
     .catch(() => false);
 }

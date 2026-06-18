@@ -111,10 +111,37 @@ function escapeHtml(value: string) {
     .replace(/"/g, "&quot;");
 }
 
+function safePreviewUrl(rawUrl: string): string {
+  const url = rawUrl.trim();
+  if (!url) return "#";
+  if (
+    url.startsWith("/") ||
+    url.startsWith("./") ||
+    url.startsWith("../") ||
+    url.startsWith("#")
+  ) {
+    return escapeHtml(url);
+  }
+
+  try {
+    const parsed = new URL(url);
+    if (["http:", "https:", "mailto:"].includes(parsed.protocol)) {
+      return escapeHtml(parsed.toString());
+    }
+  } catch {}
+
+  return "#";
+}
+
 function renderInlineMarkdown(value: string) {
   return escapeHtml(value)
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt: string, url: string) => {
+      const safeUrl = safePreviewUrl(url);
+      return safeUrl === "#" ? `<span>${alt}</span>` : `<img src="${safeUrl}" alt="${alt}" />`;
+    })
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, text: string, url: string) => (
+      `<a href="${safePreviewUrl(url)}" rel="nofollow noopener noreferrer">${text}</a>`
+    ))
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/\*([^*]+)\*/g, "<em>$1</em>");

@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import { remark } from "remark";
 import remarkGfm from "remark-gfm";
 import remarkHtml from "remark-html";
@@ -94,6 +95,13 @@ function absolutizeUrls(html: string): string {
     );
 }
 
-// 执行生成
-generateSearchIndex();
-generateRss();
+function isCliEntry() {
+  return process.argv[1]
+    ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+    : false;
+}
+
+if (isCliEntry()) {
+  generateSearchIndex();
+  generateRss();
+}

@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import { isValidDateString } from "@/lib/post-schema";
 import { siteConfig } from "@/site.config";
 
 const postsDirectory = path.join(process.cwd(), "posts");
@@ -19,6 +20,12 @@ export interface PostData {
   readingTime?: number;
 }
 
+interface PostRecord extends Omit<PostData, "content"> {
+  content: string;
+}
+
+let postsCache: PostRecord[] | null = null;
+
 /** 估算阅读时间（分钟）。中文约 400 字/分钟，代码和英文较慢 */
 function estimateReadingTime(text: string): number {
   const stripped = text.replace(/```[\s\S]*?```/g, (m) => " ".repeat(m.length));
@@ -29,69 +36,126 @@ function estimateReadingTime(text: string): number {
   return Math.max(1, Math.ceil(minutes));
 }
 
-export function getSortedPostsData(includePrivate = false): PostData[] {
-  const fileNames = fs.readdirSync(postsDirectory);
-  const allPostsData = fileNames
+function normalizeDateField(value: unknown, field: string, slug: string): string {
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      throw new Error(`Invalid frontmatter for ${slug}: ${field} 必须是合法日期`);
+    }
+    return value.toISOString().split("T")[0];
+  }
+  if (!isValidDateString(value)) {
+    throw new Error(`Invalid frontmatter for ${slug}: ${field} 必须是合法日期`);
+  }
+  return value.trim();
+}
+
+function optionalString(value: unknown, field: string, slug: string): string | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value !== "string") {
+    throw new Error(`Invalid frontmatter for ${slug}: ${field} 必须是字符串`);
+  }
+  return value.trim() || undefined;
+}
+
+function normalizeTags(value: unknown, slug: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`Invalid frontmatter for ${slug}: tags 必须是字符串数组`);
+  }
+  const tags = value.map((tag, index) => {
+    if (typeof tag !== "string" || !tag.trim()) {
+      throw new Error(`Invalid frontmatter for ${slug}: tags[${index}] 必须是非空字符串`);
+    }
+    return tag.trim();
+  });
+  return tags;
+}
+
+function normalizePost(fileName: string): PostRecord {
+  const slug = fileName.replace(/\.md$/, "");
+  const fullPath = path.join(postsDirectory, fileName);
+  const fileContents = fs.readFileSync(fullPath, "utf8");
+  const matterResult = matter(fileContents);
+  const data = matterResult.data as Record<string, unknown>;
+
+  if (typeof data.title !== "string" || !data.title.trim()) {
+    throw new Error(`Invalid frontmatter for ${slug}: title 必须是非空字符串`);
+  }
+
+  const date = normalizeDateField(data.date, "date", slug);
+  const updated = data.updated === undefined
+    ? undefined
+    : normalizeDateField(data.updated, "updated", slug);
+
+  if (updated && new Date(updated) < new Date(date)) {
+    throw new Error(`Invalid frontmatter for ${slug}: updated 不能早于 date`);
+  }
+
+  if (data.public !== undefined && typeof data.public !== "boolean") {
+    throw new Error(`Invalid frontmatter for ${slug}: public 必须是布尔值`);
+  }
+
+  return {
+    slug,
+    title: data.title.trim(),
+    date,
+    updated,
+    tags: normalizeTags(data.tags, slug),
+    description: optionalString(data.description, "description", slug) || "",
+    public: data.public !== false,
+    series: optionalString(data.series, "series", slug),
+    seriesTitle: optionalString(data.seriesTitle, "seriesTitle", slug),
+    content: matterResult.content,
+    readingTime: estimateReadingTime(matterResult.content),
+  };
+}
+
+function getAllPostRecords(): PostRecord[] {
+  if (postsCache) return postsCache;
+
+  postsCache = fs
+    .readdirSync(postsDirectory)
     .filter((fileName) => fileName.endsWith(".md"))
-    .map((fileName) => {
-      const slug = fileName.replace(/\.md$/, "");
-      const fullPath = path.join(postsDirectory, fileName);
-      const fileContents = fs.readFileSync(fullPath, "utf8");
-      const matterResult = matter(fileContents);
+    .map(normalizePost)
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
 
-      return {
-        slug,
-        title: matterResult.data.title,
-        date: matterResult.data.date,
-        updated: matterResult.data.updated,
-        tags: matterResult.data.tags || [],
-        description: matterResult.data.description || "",
-        public: matterResult.data.public !== false,
-        series: matterResult.data.series,
-        seriesTitle: matterResult.data.seriesTitle,
-        readingTime: estimateReadingTime(matterResult.content),
-      };
-    });
+  return postsCache;
+}
 
-  const sorted = allPostsData.sort((a, b) => (a.date < b.date ? 1 : -1));
-  if (includePrivate) return sorted;
-  return sorted.filter((p) => p.public);
+function toPostData(post: PostRecord, includeContent = false): PostData {
+  return {
+    slug: post.slug,
+    title: post.title,
+    date: post.date,
+    updated: post.updated,
+    tags: [...post.tags],
+    description: post.description,
+    public: post.public,
+    series: post.series,
+    seriesTitle: post.seriesTitle,
+    readingTime: post.readingTime,
+    content: includeContent ? post.content : undefined,
+  };
+}
+
+export function getSortedPostsData(includePrivate = false): PostData[] {
+  const posts = getAllPostRecords();
+  const filtered = includePrivate ? posts : posts.filter((p) => p.public);
+  return filtered.map((post) => toPostData(post));
 }
 
 export function getAllTags(): string[] {
-  const posts = getSortedPostsData();
   const tagSet = new Set<string>();
-  posts.forEach((post) => post.tags.forEach((tag) => tagSet.add(tag)));
+  getSortedPostsData().forEach((post) => post.tags.forEach((tag) => tagSet.add(tag)));
   return Array.from(tagSet).sort();
 }
 
 export function getPostBySlug(slug: string): PostData | null {
-  try {
-    const fullPath = path.join(postsDirectory, `${slug}.md`);
-    const fileContents = fs.readFileSync(fullPath, "utf8");
-    const matterResult = matter(fileContents);
-
-    return {
-      slug,
-      title: matterResult.data.title,
-      date: matterResult.data.date,
-      updated: matterResult.data.updated,
-      tags: matterResult.data.tags || [],
-      description: matterResult.data.description || "",
-      public: matterResult.data.public !== false,
-      series: matterResult.data.series,
-      seriesTitle: matterResult.data.seriesTitle,
-      content: matterResult.content,
-      readingTime: estimateReadingTime(matterResult.content),
-    };
-  } catch {
-    return null;
-  }
+  const post = getAllPostRecords().find((item) => item.slug === slug);
+  return post ? toPostData(post, true) : null;
 }
 
 export function getPostsByTag(tag: string): PostData[] {
-  const posts = getSortedPostsData();
-  return posts.filter((post) => post.tags.includes(tag));
+  return getSortedPostsData().filter((post) => post.tags.includes(tag));
 }
 
 export function getPostNeighbors(slug: string): {
@@ -138,12 +202,8 @@ function postLinksToSlug(content: string, slug: string): boolean {
 }
 
 export function getBacklinks(slug: string): PostData[] {
-  return getSortedPostsData()
-    .filter((post) => post.slug !== slug)
-    .filter((post) => {
-      const fullPath = path.join(postsDirectory, `${post.slug}.md`);
-      const fileContents = fs.readFileSync(fullPath, "utf8");
-      const matterResult = matter(fileContents);
-      return postLinksToSlug(matterResult.content, slug);
-    });
+  return getAllPostRecords()
+    .filter((post) => post.public && post.slug !== slug)
+    .filter((post) => postLinksToSlug(post.content, slug))
+    .map((post) => toPostData(post));
 }

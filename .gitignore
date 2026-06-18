@@ -16,9 +16,14 @@
 # next.js
 /.next/
 /out/
+/public/rss.xml
+/public/search-index.json
 
 # production
 /build
+
+# local agent/tooling
+.workbuddy/
 
 # misc
 .DS_Store

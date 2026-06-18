@@ -7,6 +7,8 @@ import { getSeriesClassName } from "@/lib/series-config";
 import { siteConfig } from "@/site.config";
 
 export const metadata = {
+  title: siteConfig.name,
+  description: siteConfig.description,
   alternates: {
     canonical: "/",
   },
