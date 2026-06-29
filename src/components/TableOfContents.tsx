@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface TocHeading {
   id: string;
@@ -14,6 +14,7 @@ interface TableOfContentsProps {
 
 export default function TableOfContents({ headings }: TableOfContentsProps) {
   const [activeId, setActiveId] = useState<string>("");
+  const activeLinkRef = useRef<HTMLAnchorElement | null>(null);
 
   useEffect(() => {
     if (headings.length === 0) return;
@@ -44,6 +45,13 @@ export default function TableOfContents({ headings }: TableOfContentsProps) {
     return () => observer.disconnect();
   }, [headings]);
 
+  useEffect(() => {
+    activeLinkRef.current?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [activeId]);
+
   if (headings.length === 0) return null;
 
   return (
@@ -51,7 +59,7 @@ export default function TableOfContents({ headings }: TableOfContentsProps) {
       <div className="mb-3 font-medium text-foreground/80 tracking-wide text-xs uppercase">
         目录
       </div>
-      <ol className="space-y-1.5">
+      <ol className="toc-scroll max-h-[calc(100vh-8rem)] space-y-1.5 overflow-y-auto pr-3">
         {headings.map((heading) => {
           const isActive = heading.id === activeId;
           return (
@@ -60,6 +68,7 @@ export default function TableOfContents({ headings }: TableOfContentsProps) {
               className={heading.level === 3 ? "pl-4" : undefined}
             >
               <a
+                ref={isActive ? activeLinkRef : null}
                 href={`#${heading.id}`}
                 className={`block py-0.5 transition-colors duration-200 border-l-2 -ml-5 pl-5 ${
                   isActive

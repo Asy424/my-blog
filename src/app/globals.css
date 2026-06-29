@@ -405,6 +405,25 @@ body {
   border-radius: 3px;
 }
 
+.toc-scroll {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.toc-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.toc-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.toc-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .hero-accent-glow {
   background-image: radial-gradient(circle, var(--accent) 0%, transparent 70%);
 }
