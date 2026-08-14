@@ -24,7 +24,12 @@ interface PostRecord extends Omit<PostData, "content"> {
   content: string;
 }
 
-let postsCache: PostRecord[] | null = null;
+interface PostsCacheEntry {
+  signature: string;
+  records: PostRecord[];
+}
+
+let postsCache: PostsCacheEntry | null = null;
 
 /** 估算阅读时间（分钟）。中文约 400 字/分钟，代码和英文较慢 */
 function estimateReadingTime(text: string): number {
@@ -109,16 +114,28 @@ function normalizePost(fileName: string): PostRecord {
   };
 }
 
+/** 基于文件 mtime + size 计算签名，posts/ 下任何文件变化都会让缓存自动失效（解决 dev 热更新读到旧列表的问题） */
 function getAllPostRecords(): PostRecord[] {
-  if (postsCache) return postsCache;
-
-  postsCache = fs
+  const files = fs
     .readdirSync(postsDirectory)
-    .filter((fileName) => fileName.endsWith(".md"))
+    .filter((fileName) => fileName.endsWith(".md"));
+  const signature = files
+    .map((fileName) => {
+      const stat = fs.statSync(path.join(postsDirectory, fileName));
+      return `${fileName}:${stat.mtimeMs}:${stat.size}`;
+    })
+    .sort()
+    .join("|");
+
+  if (postsCache && postsCache.signature === signature) {
+    return postsCache.records;
+  }
+
+  const records = files
     .map(normalizePost)
     .sort((a, b) => (a.date < b.date ? 1 : -1));
-
-  return postsCache;
+  postsCache = { signature, records };
+  return records;
 }
 
 function toPostData(post: PostRecord, includeContent = false): PostData {

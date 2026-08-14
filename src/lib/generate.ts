@@ -86,6 +86,10 @@ function renderMarkdown(markdown: string): string {
   return String(remark().use(remarkGfm).use(remarkHtml).processSync(markdown));
 }
 
+/**
+ * 生成搜索正文摘要。截断到 200 字符：保留全文搜索能力，
+ * 同时控制 search-index.json 体积与客户端 fuse 检索开销（文章增多时收益明显）。
+ */
 function createSearchExcerpt(markdown: string): string {
   return markdown
     .replace(/```[\s\S]*?```/g, " ")
@@ -97,7 +101,7 @@ function createSearchExcerpt(markdown: string): string {
     .replace(/[#>*_`~|{}\[\]()-]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
-    .slice(0, 360);
+    .slice(0, 200);
 }
 
 function absolutizeUrls(html: string): string {

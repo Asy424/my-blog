@@ -1,5 +1,7 @@
 import { getSortedPostsData } from "@/lib/posts";
-import PostCard from "@/components/PostCard";
+import Pagination from "@/components/Pagination";
+import PostList from "./_components/PostList";
+import { getPagePosts, getTotalPages } from "@/lib/pagination";
 
 export const metadata = {
   title: "博客",
@@ -11,6 +13,8 @@ export const metadata = {
 
 export default function BlogPage() {
   const posts = getSortedPostsData();
+  const totalPages = getTotalPages(posts.length);
+  const pagePosts = getPagePosts(posts, 1);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-12">
@@ -25,19 +29,8 @@ export default function BlogPage() {
           按发布时间倒序排列的全部公开文章。
         </p>
       </header>
-      {posts.length === 0 ? (
-        <div className="mt-10 rounded-lg border border-dashed border-border py-16 text-center text-muted">
-          <p className="text-lg">还没有文章</p>
-        </div>
-      ) : (
-        <div className="mt-8 space-y-4">
-          {posts.map((post, i) => (
-            <div key={post.slug} className={`animate-fade-in-up animate-delay-${Math.min(i + 1, 5)}`}>
-              <PostCard post={post} />
-            </div>
-          ))}
-        </div>
-      )}
+      <PostList posts={pagePosts} />
+      <Pagination currentPage={1} totalPages={totalPages} basePath="/blog" />
     </div>
   );
 }

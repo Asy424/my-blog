@@ -4,6 +4,8 @@ import { useEffect } from "react";
 
 export default function CodeBlock() {
   useEffect(() => {
+    // 触屏设备（pointer: coarse）没有 hover，复制按钮需要常显
+    const isTouch = window.matchMedia("(pointer: coarse)").matches;
     const cleanups: Array<() => void> = [];
     const codeBlocks = document.querySelectorAll("pre code");
 
@@ -45,8 +47,12 @@ export default function CodeBlock() {
       };
 
       pre.style.position = "relative";
-      pre.addEventListener("mouseenter", showButton);
-      pre.addEventListener("mouseleave", hideButton);
+      if (isTouch) {
+        button.style.opacity = "1";
+      } else {
+        pre.addEventListener("mouseenter", showButton);
+        pre.addEventListener("mouseleave", hideButton);
+      }
       button.addEventListener("click", copyCode);
       pre.appendChild(button);
 
