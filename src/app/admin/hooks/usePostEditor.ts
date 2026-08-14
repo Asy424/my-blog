@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import type { ClipboardEvent, DragEvent } from "react";
 import type { GitHubFile } from "@/lib/github-admin";
 import {
   listPosts,
@@ -28,6 +27,7 @@ import {
   booleanField,
 } from "../lib/frontmatter";
 import { useImageUpload } from "./useImageUpload";
+import type { MilkdownEditorApi } from "../components/MilkdownEditor";
 import type { Toast } from "../components/StatusBar";
 
 const CUSTOM_SERIES_VALUE = "__custom";
@@ -42,7 +42,7 @@ export interface PostMeta {
   series?: string;
 }
 
-type EditorMode = "live" | "edit" | "preview";
+type EditorMode = "write" | "source" | "preview";
 
 /**
  * 后台编辑器的全部状态与操作（草稿自动保存、发布、删除、媒体上传等）。
@@ -69,7 +69,7 @@ export function usePostEditor(
   const [seriesMode, setSeriesMode] = useState("");
   const [customSeriesTitle, setCustomSeriesTitle] = useState("");
   const [content, setContent] = useState("");
-  const [editorMode, setEditorMode] = useState<EditorMode>("live");
+  const [editorMode, setEditorMode] = useState<EditorMode>("write");
   const [isPublic, setIsPublic] = useState(true);
   const [editingFile, setEditingFile] = useState<GitHubFile | null>(null);
   const [originalDate, setOriginalDate] = useState<string>("");
@@ -79,6 +79,9 @@ export function usePostEditor(
   const [draftStatus, setDraftStatus] = useState<DraftStatus>("clean");
   const [lastDraftSavedAt, setLastDraftSavedAt] = useState("");
   const [savedDraftSignature, setSavedDraftSignature] = useState("");
+
+  /** Milkdown 编辑器实例操作（写作模式可用；源码模式为 null） */
+  const editorApiRef = useRef<MilkdownEditorApi | null>(null);
 
   const tagSuggestions = useMemo(() => {
     const set = new Set<string>();
@@ -328,7 +331,7 @@ export function usePostEditor(
     setOriginalDate("");
     setPublishIssues([]);
     setLastBackupKey("");
-    setEditorMode("live");
+    setEditorMode("write");
     setShowMediaLibrary(false);
     setDraftStatus("clean");
     setLastDraftSavedAt("");
@@ -526,7 +529,12 @@ export function usePostEditor(
     }
   }
 
+  /** 在光标处插入 markdown：写作模式走编辑器实例，源码模式走 textarea */
   function insertMarkdown(markdown: string) {
+    if (editorApiRef.current) {
+      editorApiRef.current.insertMarkdown(markdown);
+      return;
+    }
     const textarea = document.querySelector(
       ".admin-editor-textarea"
     ) as HTMLTextAreaElement | null;
@@ -539,30 +547,18 @@ export function usePostEditor(
     });
   }
 
-  async function handleImageInsert(file: File) {
-    const md = await upload(file);
-    if (!md) return;
-    insertMarkdown(md);
-    addToast("success", "图片已上传并插入 Markdown");
-  }
-
-  function handlePaste(e: ClipboardEvent) {
-    const image = Array.from(e.clipboardData.files || []).find((f) =>
-      f.type.startsWith("image/")
-    );
-    if (image) {
-      e.preventDefault();
-      handleImageInsert(image);
-    }
-  }
-
-  function handleDrop(e: DragEvent) {
-    e.preventDefault();
-    const image = Array.from(e.dataTransfer.files || []).find((f) =>
-      f.type.startsWith("image/")
-    );
-    if (image) handleImageInsert(image);
-  }
+  /** 供 Milkdown 编辑器上传图片，返回图片 URL（上传失败抛错，由编辑器显示错误状态） */
+  const uploadImageForEditor = useCallback(
+    async (file: File): Promise<string> => {
+      const md = await upload(file);
+      if (!md) {
+        throw new Error("图片上传失败");
+      }
+      const match = md.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+      return match?.[2] ?? "";
+    },
+    [upload]
+  );
 
   async function handleDelete() {
     if (!editingFile) return;
@@ -627,9 +623,8 @@ export function usePostEditor(
     handleSelectPost,
     handlePublish,
     insertMarkdown,
-    handleImageInsert,
-    handlePaste,
-    handleDrop,
+    uploadImageForEditor,
+    editorApiRef,
     handleDelete,
   };
 }

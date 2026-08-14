@@ -1,33 +1,48 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { withBasePath } from "@/site.config";
 import { normalizeSlug } from "@/lib/post-schema";
-import { seriesDefinitions } from "@/lib/series-config";
 import { slugify } from "./lib/frontmatter";
 import { useAuth } from "./hooks/useAuth";
 import { usePostEditor } from "./hooks/usePostEditor";
 import PostSidebar from "./components/PostSidebar";
-import TagInput from "./components/TagInput";
 import MediaLibrary from "./components/MediaLibrary";
 import MarkdownPreview from "./components/MarkdownPreview";
+import MilkdownEditor from "./components/MilkdownEditor";
+import EditorSidebar from "./components/EditorSidebar";
 import StatusBar, { useToasts } from "./components/StatusBar";
 
-const CUSTOM_SERIES_VALUE = "__custom";
+/** 正文统计：中文字数、英文单词数、预估阅读时间 */
+function countStats(markdown: string) {
+  const stripped = markdown
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, " ")
+    .replace(/[#>*_`~|{}\[\]()-]/g, " ");
+  const cjk = (stripped.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length;
+  const latin = (stripped.match(/[a-zA-Z]+/g) || []).length;
+  return {
+    cjk,
+    latin,
+    readingTime: Math.max(1, Math.ceil(cjk / 400 + latin / 200)),
+  };
+}
 
 export default function AdminPage() {
   const { token, isAuthenticated, authLoading, authError, tokenWarning, login, logout } = useAuth();
   const { toasts, addToast, dismissToast } = useToasts();
   const editor = usePostEditor(token, addToast);
-  const [tokenInput, setTokenInput] = useState("");
-
   const { loadPosts, editingFile, isPublic } = editor;
+  const [tokenInput, setTokenInput] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     if (isAuthenticated && token) {
       queueMicrotask(() => void loadPosts());
     }
   }, [isAuthenticated, token, loadPosts]);
+
+  const stats = useMemo(() => countStats(editor.content), [editor.content]);
 
   // ── Login screen ──
   if (!isAuthenticated) {
@@ -102,31 +117,39 @@ export default function AdminPage() {
       {/* Top bar */}
       <header className="flex items-center justify-between px-5 py-2.5 border-b border-border bg-card z-10 shrink-0">
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen((v) => !v)}
+            className="rounded-md border border-border px-2 py-1 text-xs text-muted transition-colors hover:bg-card-hover hover:text-foreground cursor-pointer"
+            aria-label={sidebarOpen ? "收起设置面板" : "展开设置面板"}
+          >
+            {sidebarOpen ? "收起设置" : "展开设置"}
+          </button>
           <h1 className="text-base font-semibold text-foreground">写文章</h1>
           {editingFile && (
             <span className="text-xs text-muted px-2 py-0.5 rounded bg-accent-soft">
               {editingFile.name}
             </span>
           )}
-            {editor.uploading && (
-              <span className="text-xs text-accent animate-pulse">上传中...</span>
-            )}
-            <span className="text-xs text-muted">
-              草稿键: {editor.currentSlug}
-            </span>
-            <span
-              className={[
-                "rounded-full px-2 py-0.5 text-xs",
-                editor.draftVisualStatus === "dirty"
-                  ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-                  : editor.draftStatus === "published" && editor.draftVisualStatus === "clean"
-                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                    : "bg-accent-soft text-muted",
-              ].join(" ")}
-            >
-              {editor.draftStatusText}
-            </span>
-          </div>
+          {editor.uploading && (
+            <span className="text-xs text-accent animate-pulse">上传中...</span>
+          )}
+          <span className="hidden md:inline text-xs text-muted">
+            草稿键: {editor.currentSlug}
+          </span>
+          <span
+            className={[
+              "rounded-full px-2 py-0.5 text-xs",
+              editor.draftVisualStatus === "dirty"
+                ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                : editor.draftStatus === "published" && editor.draftVisualStatus === "clean"
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                  : "bg-accent-soft text-muted",
+            ].join(" ")}
+          >
+            {editor.draftStatusText}
+          </span>
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={editor.resetEditor}
@@ -189,7 +212,7 @@ export default function AdminPage() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
+        {/* Sidebar（文章列表） */}
         <PostSidebar
           posts={editor.posts}
           postTitles={editor.postTitles}
@@ -200,13 +223,8 @@ export default function AdminPage() {
         />
 
         {/* Editor area */}
-        <main
-          className="flex-1 flex flex-col overflow-hidden"
-          onPaste={editor.handlePaste}
-          onDrop={editor.handleDrop}
-          onDragOver={(e) => e.preventDefault()}
-        >
-          {/* Title */}
+        <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+          {/* 标题 */}
           <input
             type="text"
             placeholder="输入文章标题..."
@@ -217,138 +235,8 @@ export default function AdminPage() {
                 editor.setSlugInput(slugify(e.target.value));
               }
             }}
-            className="w-full px-6 py-4 text-2xl font-display font-normal bg-transparent border-b border-border outline-none placeholder-muted/50 text-foreground"
+            className="w-full px-6 py-4 text-2xl font-display font-normal bg-transparent border-b border-border outline-none placeholder-muted/50 text-foreground shrink-0"
           />
-
-          {/* Meta bar —— 分两层：分类设置 / 内容元数据 */}
-          <div className="px-6 py-3 border-b border-border space-y-2.5 text-sm">
-            {/* 第一行：系列 + 公开开关 */}
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="flex items-center gap-2 text-xs text-muted">
-                Slug
-                <input
-                  type="text"
-                  value={editor.slugInput}
-                  disabled={Boolean(editingFile)}
-                  onChange={(e) => editor.setSlugInput(normalizeSlug(e.target.value))}
-                  placeholder="post-slug"
-                  className="w-40 rounded-md border border-border bg-card px-2 py-1.5 outline-none placeholder-muted text-foreground text-xs focus:border-accent disabled:opacity-60"
-                />
-              </label>
-              <label className="flex items-center gap-2 text-xs text-muted">
-                发布
-                <input
-                  type="date"
-                  value={editor.dateInput}
-                  onChange={(e) => editor.setDateInput(e.target.value)}
-                  className="rounded-md border border-border bg-card px-2 py-1.5 outline-none text-foreground text-xs focus:border-accent"
-                />
-              </label>
-              <label className="flex items-center gap-2 text-xs text-muted">
-                更新
-                <input
-                  type="date"
-                  value={editor.updatedInput}
-                  onChange={(e) => editor.setUpdatedInput(e.target.value)}
-                  className="rounded-md border border-border bg-card px-2 py-1.5 outline-none text-foreground text-xs focus:border-accent"
-                />
-              </label>
-              <label className="flex items-center gap-2 text-xs text-muted">
-                系列
-                <select
-                  value={editor.seriesMode}
-                  onChange={(e) => {
-                    editor.setSeriesMode(e.target.value);
-                    if (e.target.value !== CUSTOM_SERIES_VALUE) {
-                      editor.setCustomSeriesTitle("");
-                    }
-                  }}
-                  className="min-w-36 rounded-md border border-border bg-card px-2 py-1.5 text-foreground outline-none focus:border-accent text-xs"
-                  aria-label="所属系列"
-                >
-                  <option value="">不加入系列</option>
-                  {seriesDefinitions.map((s) => (
-                    <option key={s.slug} value={s.slug}>
-                      {s.title}
-                    </option>
-                  ))}
-                  <option value={CUSTOM_SERIES_VALUE}>新建系列...</option>
-                </select>
-              </label>
-              {editor.seriesMode === CUSTOM_SERIES_VALUE && (
-                <input
-                  type="text"
-                  placeholder="新系列名称"
-                  value={editor.customSeriesTitle}
-                  onChange={(e) => editor.setCustomSeriesTitle(e.target.value)}
-                  className="min-w-36 rounded-md border border-border bg-card px-2 py-1.5 outline-none placeholder-muted text-foreground text-xs focus:border-accent"
-                />
-              )}
-              <button
-                onClick={() => editor.setIsPublic(!isPublic)}
-                className="shrink-0 ml-auto px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer border"
-                style={
-                  isPublic
-                    ? { background: "var(--accent-soft)", color: "var(--accent)", borderColor: "transparent" }
-                    : { background: "transparent", color: "var(--muted)", borderColor: "var(--border)" }
-                }
-              >
-                {isPublic ? "● 公开" : "○ 私密"}
-              </button>
-            </div>
-
-            {/* 第二行：标签 + 简介 */}
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="flex items-center gap-2 text-xs text-muted shrink-0">
-                标签
-                <div className="min-w-48 flex-1 rounded-md border border-border bg-card px-2.5 py-1 focus-within:border-accent">
-                  <TagInput
-                    value={editor.tags}
-                    onChange={editor.setTags}
-                    placeholder="回车添加"
-                    suggestions={editor.tagSuggestions}
-                  />
-                </div>
-              </label>
-              <label className="flex items-center gap-2 text-xs text-muted flex-1 min-w-56">
-                简介
-                <input
-                  type="text"
-                  placeholder="一句话摘要（可选）"
-                  value={editor.description}
-                  onChange={(e) => editor.setDescription(e.target.value)}
-                  className="flex-1 min-w-0 rounded-md border border-border bg-card px-2.5 py-1.5 outline-none placeholder-muted text-foreground text-xs focus:border-accent"
-                />
-              </label>
-            </div>
-            <div
-              className={[
-                "rounded-md border px-3 py-2 text-xs",
-                editor.draftIssues.length > 0
-                  ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200",
-              ].join(" ")}
-            >
-              <div className="font-medium">
-                {editor.draftIssues.length > 0
-                  ? `发布前检查：${editor.draftIssues.length} 个问题`
-                  : "发布前检查：可以保存"}
-              </div>
-              {editor.draftIssues.length > 0 && (
-                <div className="mt-1 space-y-0.5">
-                  {editor.draftIssues.slice(0, 4).map((issue) => (
-                    <div key={issue}>· {issue}</div>
-                  ))}
-                  {editor.draftIssues.length > 4 && (
-                    <div>· 还有 {editor.draftIssues.length - 4} 个问题</div>
-                  )}
-                </div>
-              )}
-              {editor.publishIssues.length > 0 && editor.draftIssues.length === 0 && (
-                <div className="mt-1">上一次检查问题已修复。</div>
-              )}
-            </div>
-          </div>
 
           {editor.showMediaLibrary && (
             <MediaLibrary
@@ -361,15 +249,19 @@ export default function AdminPage() {
             />
           )}
 
-          {/* Markdown editor */}
-          <div className="flex items-center justify-between border-b border-border px-6 py-2">
+          {/* 模式切换 */}
+          <div className="flex items-center justify-between border-b border-border px-4 py-1.5 shrink-0">
             <div className="text-xs text-muted">
-              {editor.editorMode === "preview" ? "本地预览，不会发布私密内容" : "Markdown 编辑器"}
+              {editor.editorMode === "preview"
+                ? "发布预览（与线上渲染接近，代码高亮用 highlight.js）"
+                : editor.editorMode === "write"
+                  ? "所见即所得，支持工具栏 / 斜杠菜单 / 拖拽上传图片"
+                  : "Markdown 源码（写作模式的内容实时同步到这里）"}
             </div>
             <div className="flex rounded-md border border-border bg-card p-0.5">
               {[
-                ["live", "分屏"],
-                ["edit", "编辑"],
+                ["write", "写作"],
+                ["source", "源码"],
                 ["preview", "预览"],
               ].map(([mode, label]) => (
                 <button
@@ -377,7 +269,7 @@ export default function AdminPage() {
                   type="button"
                   onClick={() => editor.setEditorMode(mode as typeof editor.editorMode)}
                   className={[
-                    "rounded px-2.5 py-1 text-xs transition-colors",
+                    "rounded px-2.5 py-1 text-xs transition-colors cursor-pointer",
                     editor.editorMode === mode
                       ? "bg-foreground text-background"
                       : "text-muted hover:text-foreground",
@@ -388,13 +280,18 @@ export default function AdminPage() {
               ))}
             </div>
           </div>
-          <div
-            className={[
-              "grid flex-1 overflow-hidden bg-background",
-              editor.editorMode === "live" ? "grid-cols-2" : "grid-cols-1",
-            ].join(" ")}
-          >
-            {editor.editorMode !== "preview" && (
+
+          {/* 编辑器主体 */}
+          <div className="flex-1 min-h-0">
+            {editor.editorMode === "write" && (
+              <MilkdownEditor
+                value={editor.content}
+                onChange={editor.setContent}
+                onUploadImage={editor.uploadImageForEditor}
+                apiRef={editor.editorApiRef}
+              />
+            )}
+            {editor.editorMode === "source" && (
               <textarea
                 value={editor.content}
                 onChange={(e) => editor.setContent(e.target.value)}
@@ -403,13 +300,52 @@ export default function AdminPage() {
                 placeholder="在这里写 Markdown..."
               />
             )}
-            {editor.editorMode !== "edit" && (
-              <div className="h-full min-h-0 overflow-auto border-l border-border bg-card/40 p-6">
+            {editor.editorMode === "preview" && (
+              <div className="h-full min-h-0 overflow-y-auto bg-card/40 p-6">
                 <MarkdownPreview content={editor.content} />
               </div>
             )}
           </div>
+
+          {/* 状态栏 */}
+          <footer className="flex items-center justify-between border-t border-border bg-card px-4 py-1.5 text-xs text-muted shrink-0">
+            <div className="flex items-center gap-4">
+              <span>正文 {stats.cjk} 字</span>
+              {stats.latin > 0 && <span>英文 {stats.latin} 词</span>}
+              <span>约 {stats.readingTime} 分钟阅读</span>
+            </div>
+            <div className="flex items-center gap-3">
+              {editor.uploading && <span className="text-accent animate-pulse">上传中...</span>}
+              <span>{editor.draftStatusText}</span>
+            </div>
+          </footer>
         </main>
+
+        {/* Right panel（元数据 + 大纲 + 检查） */}
+        <EditorSidebar
+          open={sidebarOpen}
+          onToggle={() => setSidebarOpen((v) => !v)}
+          editing={Boolean(editingFile)}
+          slug={editor.slugInput}
+          onSlugChange={(v) => editor.setSlugInput(normalizeSlug(v))}
+          date={editor.dateInput}
+          onDateChange={editor.setDateInput}
+          updated={editor.updatedInput}
+          onUpdatedChange={editor.setUpdatedInput}
+          seriesMode={editor.seriesMode}
+          onSeriesModeChange={editor.setSeriesMode}
+          customSeriesTitle={editor.customSeriesTitle}
+          onCustomSeriesTitleChange={editor.setCustomSeriesTitle}
+          isPublic={isPublic}
+          onIsPublicChange={editor.setIsPublic}
+          tags={editor.tags}
+          onTagsChange={editor.setTags}
+          tagSuggestions={editor.tagSuggestions}
+          description={editor.description}
+          onDescriptionChange={editor.setDescription}
+          draftIssues={editor.draftIssues}
+          content={editor.content}
+        />
       </div>
     </div>
   );

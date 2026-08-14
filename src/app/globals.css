@@ -480,3 +480,37 @@ body {
     animation: none !important;
   }
 }
+
+/* ── Milkdown Crepe 编辑器（/admin）── */
+
+/* 暗色模式：覆盖 Crepe 主题变量（作用域在 .milkdown） */
+.dark .milkdown {
+  --crepe-color-background: #141620;
+  --crepe-color-on-background: #e2e0db;
+  --crepe-color-surface: #1a1d2e;
+  --crepe-color-surface-low: #161824;
+  --crepe-color-on-surface: #e2e0db;
+  --crepe-color-on-surface-variant: #8a8a9e;
+  --crepe-color-outline: #3a3d4f;
+  --crepe-color-primary: #6fbf8a;
+  --crepe-color-secondary: #16291f;
+  --crepe-color-on-secondary: #cfe8d8;
+  --crepe-color-inverse: #e2e0db;
+  --crepe-color-on-inverse: #1a1d2e;
+  --crepe-color-inline-code: #6fbf8a;
+  --crepe-color-error: #ef8a8a;
+  --crepe-color-hover: #1a1d2e;
+  --crepe-color-selected: #232634;
+  --crepe-color-inline-area: #232634;
+}
+
+/* 编辑器容器占满可用高度 */
+.milkdown-crepe .milkdown {
+  height: 100%;
+}
+
+/* 编辑区与工具栏衔接 */
+.milkdown-crepe .milkdown .ProseMirror {
+  min-height: 100%;
+  padding: 1.25rem 1.5rem;
+}
