@@ -10,6 +10,7 @@ export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [tokenWarning, setTokenWarning] = useState("");
 
   useEffect(() => {
     const saved = sessionStorage.getItem(TOKEN_STORAGE_KEY);
@@ -27,16 +28,18 @@ export function useAuth() {
 
     setAuthLoading(true);
     setAuthError("");
+    setTokenWarning("");
 
     try {
-      const ok = await verifyToken(t);
-      if (!ok) {
+      const result = await verifyToken(t);
+      if (!result.valid) {
         setAuthError("Token 无效，请检查后重试");
         return false;
       }
       sessionStorage.setItem(TOKEN_STORAGE_KEY, t);
       setToken(t);
       setIsAuthenticated(true);
+      setTokenWarning(result.warning);
       return true;
     } catch {
       setAuthError("验证失败，请检查网络连接");
@@ -51,6 +54,7 @@ export function useAuth() {
     setToken("");
     setIsAuthenticated(false);
     setAuthError("");
+    setTokenWarning("");
   }, []);
 
   const clearAuthError = useCallback(() => setAuthError(""), []);
@@ -60,6 +64,7 @@ export function useAuth() {
     isAuthenticated,
     authLoading,
     authError,
+    tokenWarning,
     login,
     logout,
     clearAuthError,

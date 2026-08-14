@@ -71,6 +71,10 @@ function validateImages(fileName, content) {
       continue;
     }
 
+    if (/\.svg$/i.test(imagePath)) {
+      addWarning(fileName, `图片为 SVG 格式，可内嵌脚本，存在同源 XSS 风险，建议替换为 PNG/JPEG/WebP: ${match[1]}`);
+    }
+
     const size = fs.statSync(fullPath).size;
     if (size > imageWarningBytes) {
       addWarning(fileName, `图片偏大: ${match[1]} (${formatBytes(size)})`);

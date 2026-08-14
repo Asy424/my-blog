@@ -125,6 +125,59 @@ function rehypeLazyImages() {
   };
 }
 
+/** URL scheme 白名单：阻止 javascript: 等危险协议注入 */
+function sanitizeUrlScheme(url: string | undefined): string | undefined {
+  if (!url) return url;
+  const trimmed = url.trim();
+  // 相对路径、站点内绝对路径和锚点
+  if (/^(\.{0,2}\/|#|\/)/.test(trimmed)) return trimmed;
+  // 显式安全协议
+  if (/^(https?:|mailto:)/i.test(trimmed)) return trimmed;
+  // 内联小图（data:image 不含可执行内容）
+  if (/^data:image\//i.test(trimmed)) return trimmed;
+  // 其余（javascript:、vbscript:、data:text/html 等）一律移除
+  return undefined;
+}
+
+/** 清洗 a[href] / img[src] 等 URL，并移除可嵌入脚本的标签 */
+function rehypeSafeUrls() {
+  const UNSAFE_TAGS = new Set(["iframe", "embed", "object", "script", "style", "link", "meta", "base", "form", "input", "button", "textarea", "select"]);
+
+  return (tree: RehypeNode) => {
+    function visit(node: RehypeNode) {
+      if (node.type === "element") {
+        if (node.tagName === "a" && typeof node.properties?.href === "string") {
+          const safe = sanitizeUrlScheme(node.properties.href);
+          if (safe === undefined) {
+            const rest = { ...node.properties };
+            delete rest.href;
+            node.properties = rest;
+          } else {
+            node.properties = { ...node.properties, href: safe };
+          }
+        }
+        if (node.tagName === "img" && typeof node.properties?.src === "string") {
+          const safe = sanitizeUrlScheme(node.properties.src);
+          if (safe === undefined) {
+            const rest = { ...node.properties };
+            delete rest.src;
+            node.properties = rest;
+          } else {
+            node.properties = { ...node.properties, src: safe };
+          }
+        }
+      }
+      if (node.children) {
+        node.children = node.children.filter(
+          (child) => !(child.type === "element" && child.tagName && UNSAFE_TAGS.has(child.tagName))
+        );
+        node.children.forEach(visit);
+      }
+    }
+    visit(tree);
+  };
+}
+
 export async function generateMetadata({ params }: BlogPostPageProps) {
   const { slug } = await params;
   const post = getPostBySlug(slug);
@@ -183,6 +236,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     })
     .use(rehypeCodeLanguage)
     .use(rehypeLazyImages)
+    .use(rehypeSafeUrls)
     .use(rehypeStringify)
     .process(post.content || "");
   const contentHtml = processedContent.toString();

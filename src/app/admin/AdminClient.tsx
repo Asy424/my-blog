@@ -248,7 +248,7 @@ function MarkdownPreview({ content }: { content: string }) {
 }
 
 export default function AdminPage() {
-  const { token, isAuthenticated, authLoading, authError, login, logout } = useAuth();
+  const { token, isAuthenticated, authLoading, authError, tokenWarning, login, logout } = useAuth();
   const { uploading, uploadError, upload } = useImageUpload(token);
   const { toasts, addToast, dismissToast } = useToasts();
 
@@ -825,6 +825,19 @@ export default function AdminPage() {
           />
           {authError && (
             <p className="text-sm mb-4" style={{ color: "var(--accent)" }}>{authError}</p>
+          )}
+          {tokenWarning && (
+            <div
+              suppressHydrationWarning
+              className="text-xs mb-4 leading-relaxed rounded-lg border p-3"
+              style={{
+                backgroundColor: "color-mix(in srgb, var(--s-blog) 12%, transparent)",
+                borderColor: "color-mix(in srgb, var(--s-blog) 40%, transparent)",
+                color: "var(--s-blog)",
+              }}
+            >
+              ⚠ {tokenWarning}
+            </div>
           )}
           <button
             onClick={() => login(tokenInput)}

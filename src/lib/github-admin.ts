@@ -76,7 +76,8 @@ function isGitHubContentItem(file: unknown): file is GitHubContentItem {
 }
 
 function isImagePath(path: string): boolean {
-  return /\.(png|jpe?g|webp|gif|avif|svg)$/i.test(path);
+  // 不含 svg：SVG 可内嵌脚本，存在同源 XSS 风险，上传和媒体库一律不支持
+  return /\.(png|jpe?g|webp|gif|avif)$/i.test(path);
 }
 
 export async function listPosts(token: string): Promise<GitHubFile[]> {
@@ -249,6 +250,13 @@ export async function uploadImage(
   token: string,
   file: File
 ): Promise<{ url: string; path: string }> {
+  // 拒绝 SVG：可内嵌脚本，即使压缩也会先被浏览器解析，存在同源 XSS 风险
+  if (
+    file.type === "image/svg+xml" ||
+    /\.svg$/i.test(file.name)
+  ) {
+    throw new Error("不支持上传 SVG 图片，请使用 PNG / JPEG / WebP / GIF / AVIF");
+  }
   const { blob: compressed, mime } = await compressImage(file);
   const buffer = await compressed.arrayBuffer();
   const bytes = new Uint8Array(buffer);
@@ -286,16 +294,47 @@ export async function uploadImage(
   };
 }
 
-export function verifyToken(token: string): Promise<boolean> {
-  return fetch(`${API_BASE}/user`, { headers: headers(token) })
-    .then(async (res) => {
-      if (!res.ok) return false;
-      const repoRes = await fetch(`${API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}`, {
-        headers: headers(token),
-      });
-      if (!repoRes.ok) return false;
-      const repo = (await repoRes.json()) as { permissions?: { push?: boolean } };
-      return repo.permissions?.push === true;
-    })
-    .catch(() => false);
+export interface TokenVerification {
+  valid: boolean;
+  /** 权限范围过宽的提示文案；无风险时为空字符串 */
+  warning: string;
+}
+
+// classic PAT 中超出「单仓库 contents 最小权限」的典型 scope
+const WIDE_SCOPE_PATTERNS: RegExp[] = [
+  /(^|,)\s*repo\s*(,|$)/i, // 全部仓库读写
+  /(^|,)\s*delete_repo\s*(,|$)/i,
+  /(^|,)\s*workflow\s*(,|$)/i,
+  /(^|,)\s*admin:/i,
+  /(^|,)\s*write:/i,
+  /(^|,)\s*gist\s*(,|$)/i,
+];
+
+export async function verifyToken(token: string): Promise<TokenVerification> {
+  try {
+    const userRes = await fetch(`${API_BASE}/user`, { headers: headers(token) });
+    if (!userRes.ok) return { valid: false, warning: "" };
+
+    // classic PAT 会返回 X-OAuth-Scopes 头；fine-grained token 不返回该头，跳过判断避免误报
+    const scopesHeader = userRes.headers.get("X-OAuth-Scopes") || "";
+    const scopeWide = scopesHeader
+      ? WIDE_SCOPE_PATTERNS.some((pattern) => pattern.test(scopesHeader))
+      : false;
+
+    const repoRes = await fetch(`${API_BASE}/repos/${REPO_OWNER}/${REPO_NAME}`, {
+      headers: headers(token),
+    });
+    if (!repoRes.ok) return { valid: false, warning: "" };
+    const repo = (await repoRes.json()) as { permissions?: { push?: boolean } };
+    if (repo.permissions?.push !== true) return { valid: false, warning: "" };
+
+    return {
+      valid: true,
+      warning: scopeWide
+        ? "当前 Token 权限范围较宽（包含仓库级或全局权限）。建议改用只授予当前仓库 contents 权限的最小 Token，以降低泄露影响。"
+        : "",
+    };
+  } catch {
+    return { valid: false, warning: "" };
+  }
 }
